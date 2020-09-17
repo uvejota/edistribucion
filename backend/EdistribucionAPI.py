@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, unquote
 import logging
 logging.basicConfig(format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.CRITICAL)
 
 class EdisError(Exception):
     def __init__(self, message):

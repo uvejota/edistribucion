@@ -1,0 +1,8 @@
+{
+  "domain": "edistribucion_sensor",
+  "name": "EDistribucion Sensor",
+  "documentation": "https://github.com/jagalindo/edistribucion/",
+  "dependencies": [],
+  "codeowners": [jagalindo, trocotronic],
+  "requirements": []
+}

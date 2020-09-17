@@ -6,10 +6,8 @@ Created on Wed May 20 11:51:36 2020
 @author: trocotronic
 """
 
-USER = 'your_login'
-PASSWORD = 'your_pw'
 
-from EdistribucionAPI import Edistribucion
+from backend.EdistribucionAPI import Edistribucion
 
 edis = Edistribucion(USER,PASSWORD)
 edis.login()
