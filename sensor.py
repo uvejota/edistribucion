@@ -1,7 +1,9 @@
-"""Platform for sensor integration."""
+import logging
 from homeassistant.const import POWER_WATT
 from homeassistant.helpers.entity import Entity
 from backend.Edistribucion import Edistribucion
+
+_LOGGER = logging.getLogger(__name__)
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
 
@@ -40,4 +42,6 @@ class EDSSensor(Entity):
         r = edis.get_cups()
         cups = r['data']['lstCups'][0]['Id']
         meter = edis.get_meter(cups)
+        _LOGGER.debug(meter)
+        _LOGGER.debug(meter['data']['potenciaActual'])
         self._state = meter['data']['potenciaActual']

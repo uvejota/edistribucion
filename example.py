@@ -5,7 +5,8 @@ Created on Wed May 20 11:51:36 2020
 
 @author: trocotronic
 """
-
+USER = ''
+PASSWORD = ''
 
 from backend.EdistribucionAPI import Edistribucion
 

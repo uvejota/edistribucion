@@ -3,6 +3,6 @@
   "name": "EDistribucion Sensor",
   "documentation": "https://github.com/jagalindo/edistribucion/",
   "dependencies": [],
-  "codeowners": [jagalindo, trocotronic],
-  "requirements": []
+  "codeowners": ["@jagalindo", "@trocotronic"],
+  "requirements": ["bs4","requests", "pickle", "json","logging","urllib"]
 }
