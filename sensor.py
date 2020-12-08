@@ -1,14 +1,16 @@
 import logging
 from homeassistant.const import POWER_WATT
 from homeassistant.helpers.entity import Entity
-from backend.Edistribucion import Edistribucion
+from .backend.EdistribucionAPI import Edistribucion
+from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)
+SCAN_INTERVAL = timedelta(minutes=10)
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
 
     """Set up the sensor platform."""
-    add_entities([EDSSensor(config['user'],config['password'])])
+    add_entities([EDSSensor(config['username'],config['password'])])
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
@@ -22,7 +24,7 @@ class EDSSensor(Entity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return 'EDS Power Temperature'
+        return 'EDS Power Compsumption'
 
     @property
     def state(self):

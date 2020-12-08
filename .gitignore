@@ -1,4 +1,4 @@
 internalConfig.py
 edistribucion.access
 edistribucion.session
-__pycache__
+*__pycache__*
