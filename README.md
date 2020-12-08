@@ -14,3 +14,11 @@ sensor:
     password: "password sin comillas"
     #scan_interval: 60 #This is in seconds. Mejor no usar para evitar baneos
 ```
+
+TODO
+=======
+* Implementar el resto de datos de nuestro contador. 
+
+Agradecimientos
+=======
+Agradecer a @trocotronic el trabajo de implementar el crwler para extraer los datos desde eds y a Miguel Macias por echar una mano animando a subir el código actualizado. 
