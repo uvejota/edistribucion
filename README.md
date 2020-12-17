@@ -28,6 +28,7 @@ entity_id: sensor.eds_power_consumption
 unit_of_measurement: '%'
 value_template: "{{ state_attr('sensor.eds_power_consumption','Porcentaje actual')|replace(',','.')|replace('%','')|float }}"
 ```
+Thanks to bepece1
 
 TODO
 =======
