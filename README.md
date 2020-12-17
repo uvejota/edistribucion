@@ -19,7 +19,7 @@ sensor:
 # ¿Se pueden crear sensores con los atributos? 
 Sí, se pueden crear de esta forma:
 
-```
+``` yaml
 platform: template
 sensors:
 porcentaje_consumo_maximo:
@@ -33,6 +33,7 @@ TODO
 =======
 * Integrar el backend como dependencia pip
 * Implementar la reconexion del ICP en cuanto el backend lo soporte. 
+* Hacer que se integre en HUCS
 
 Agradecimientos
 =======
