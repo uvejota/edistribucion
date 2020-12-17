@@ -11,7 +11,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, unquote
 import logging
 logging.basicConfig(format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
-logging.getLogger().setLevel(logging.CRITICAL)
 
 class EdisError(Exception):
     def __init__(self, message):
@@ -42,7 +41,7 @@ class Edistribucion():
         self.__session = requests.Session()
         self.__credentials['user'] = user
         self.__credentials['password'] = password
-        
+        ''' Disable sesion and toke files
         try:
             with open(Edistribucion.SESSION_FILE, 'rb') as f:
                 self.__session.cookies.update(pickle.load(f))
@@ -56,7 +55,7 @@ class Edistribucion():
                 self.__context = d['context']
         except FileNotFoundError:
             logging.warning('Access file not found')
-        
+        '''
         logging.getLogger().setLevel(debug_level)
         
     def __get_url(self, url,get=None,post=None,json=None,cookies=None,headers=None):
@@ -149,9 +148,9 @@ class Edistribucion():
         t['token'] = self.__token
         t['identities'] = self.__identities
         t['context'] = self.__context
-        with open(Edistribucion.ACCESS_FILE, 'w') as f:
-            json.dump(t, f)
-        logging.info('Saving access to file')
+        #with open(Edistribucion.ACCESS_FILE, 'w') as f:
+        #    json.dump(t, f)
+        #logging.info('Saving access to file')
         
     def login(self):
         logging.info('Logging')
@@ -215,11 +214,11 @@ class Edistribucion():
         self.__identities['name'] = r['Name']
         logging.info('Received name: %s (%s)',r['Name'],r['visibility']['Visible_Account__r']['Identity_number__c'])
         logging.debug('Account_id: %s', self.__identities['account_id'])
-        with open(Edistribucion.SESSION_FILE, 'wb') as f:
-            pickle.dump(self.__session.cookies, f)
-        logging.debug('Saving session')
+        #with open(Edistribucion.SESSION_FILE, 'wb') as f:
+        #    pickle.dump(self.__session.cookies, f)
+        #logging.debug('Saving session')
         self.__save_access()
-            
+
     def get_login_info(self):
         data = {
             'message': '{"actions":[{"id":"215;a","descriptor":"apex://WP_Monitor_CTRL/ACTION$getLoginInfo","callingDescriptor":"markup://c:WP_Monitor","params":{"serviceNumber":"S011"}}]}',
@@ -229,7 +228,7 @@ class Edistribucion():
         
     def get_cups(self):
         data = {
-            'message': '{"actions":[{"id":"270;a","descriptor":"apex://WP_ContadorICP_CTRL/ACTION$getCUPSReconectarICP","callingDescriptor":"markup://c:WP_Reconnect_ICP","params":{"visSelected":"'+self.__identities['account_id']+'"}}]}',
+            'message': '{"actions":[{"id":"419;a","descriptor":"apex://WP_ContadorICP_CTRL/ACTION$getCUPSReconectarICP","callingDescriptor":"markup://c:WP_Reconnect_ICP","params":{"visSelected":"'+self.__identities['account_id']+'"}}]}',
             }
         r = self.__command('other.WP_ContadorICP_CTRL.getCUPSReconectarICP=1', post=data)
         return r

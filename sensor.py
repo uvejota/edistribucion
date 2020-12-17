@@ -1,5 +1,5 @@
 import logging
-from homeassistant.const import POWER_WATT
+from homeassistant.const import POWER_KILO_WATT
 from homeassistant.helpers.entity import Entity
 from .backend.EdistribucionAPI import Edistribucion
 from datetime import timedelta
@@ -18,13 +18,14 @@ class EDSSensor(Entity):
     def __init__(self,usr,pw):
         """Initialize the sensor."""
         self._state = None
+        self._attributes = {}
         self._usr=usr
         self._pw=pw
 
     @property
     def name(self):
         """Return the name of the sensor."""
-        return 'EDS Power Compsumption'
+        return 'EDS Power Consumption'
 
     @property
     def state(self):
@@ -34,11 +35,15 @@ class EDSSensor(Entity):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        return POWER_WATT
+        return POWER_KILO_WATT
+
+    @property
+    def device_state_attributes(self):
+        """Return the state attributes."""
+        return self._attributes
 
     def update(self):
         """Fetch new state data for the sensor."""
-        
         edis = Edistribucion(self._usr,self._pw)
         edis.login()
         r = edis.get_cups()
@@ -46,4 +51,10 @@ class EDSSensor(Entity):
         meter = edis.get_meter(cups)
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
+        attributes = {}
+        attributes['Estado ICP'] = meter['data']['estadoICP']
+        attributes['Totalizador'] = str(meter['data']['totalizador']) + ' kWh'
+        attributes['Porcentaje actual'] = meter['data']['percent']
+        attributes['Potencia Contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
         self._state = meter['data']['potenciaActual']
+        self._attributes = attributes
