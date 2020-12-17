@@ -34,7 +34,6 @@ TODO
 =======
 * Integrar el backend como dependencia pip
 * Implementar la reconexion del ICP en cuanto el backend lo soporte. 
-* Hacer que se integre en HUCS
 
 Agradecimientos
 =======
