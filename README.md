@@ -15,9 +15,24 @@ sensor:
     #scan_interval: 60 #This is in seconds. Mejor no usar para evitar baneos
 ```
 
+ 
+# ¿Se pueden crear sensores con los atributos? 
+Sí, se pueden crear de esta forma:
+
+```
+platform: template
+sensors:
+porcentaje_consumo_maximo:
+friendly_name: "Porcentaje Consumo Máximo"
+entity_id: sensor.eds_power_consumption
+unit_of_measurement: '%'
+value_template: "{{ state_attr('sensor.eds_power_consumption','Porcentaje actual')|replace(',','.')|replace('%','')|float }}"
+```
+
 TODO
 =======
-* Implementar el resto de datos de nuestro contador. 
+* Integrar el backend como dependencia pip
+* Implementar la reconexion del ICP en cuanto el backend lo soporte. 
 
 Agradecimientos
 =======
