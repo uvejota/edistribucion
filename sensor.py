@@ -6,6 +6,7 @@ from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
+FRIENDLY_NAME = 'EDS Consumo eléctrico'
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
 
@@ -25,12 +26,17 @@ class EDSSensor(Entity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return 'EDS Power Consumption'
+        return FRIENDLY_NAME
 
     @property
     def state(self):
         """Return the state of the sensor."""
         return self._state
+
+    @property
+    def icon(self):
+        """Return the icon to be used for this entity."""
+        return "mdi:flash" 
 
     @property
     def unit_of_measurement(self):
@@ -52,9 +58,19 @@ class EDSSensor(Entity):
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
         attributes = {}
+        attributes['CUPS'] = r['data']['lstCups'][0]['Id']
         attributes['Estado ICP'] = meter['data']['estadoICP']
-        attributes['Totalizador'] = str(meter['data']['totalizador']) + ' kWh'
-        attributes['Porcentaje actual'] = meter['data']['percent']
+        attributes['Consumo Total'] = str(meter['data']['totalizador']) + ' kWh'
+        attributes['Carga actual'] = meter['data']['percent']
         attributes['Potencia Contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
         self._state = meter['data']['potenciaActual']
         self._attributes = attributes
+
+    def reconnect_icp(self, code=None) -> None:
+        """Send reconnect ICP command."""
+        edis = Edistribucion(self._usr,self._pw)
+        edis.login()
+        r = edis.get_cups()
+        cups = r['data']['lstCups'][0]['Id']
+        edis.reconnect_ICP(cups)
+        
