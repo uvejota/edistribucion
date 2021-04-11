@@ -1,7 +1,7 @@
 import logging
 from homeassistant.const import POWER_KILO_WATT
 from homeassistant.helpers.entity import Entity
-from .backend.EdistribucionAPI import Edistribucion
+from .api.EdistribucionAPI import Edistribucion
 from datetime import timedelta
 
 _LOGGER = logging.getLogger(__name__)

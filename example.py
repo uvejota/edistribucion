@@ -9,7 +9,7 @@ Created on Wed May 20 11:51:36 2020
 USER = ''
 PASSWORD = ''
 
-from backend.EdistribucionAPI import Edistribucion
+from .api.EdistribucionAPI import Edistribucion
 
 edis = Edistribucion(USER,PASSWORD)
 edis.login()
