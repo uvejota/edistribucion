@@ -1,10 +1,10 @@
 {
   "domain": "edistribucion",
   "name": "EDistribucion Sensor",
-  "documentation": "https://github.com/jagalindo/edistribucion/",
-  "issue_tracker": "https://github.com/jagalindo/edistribucion/",
+  "documentation": "https://github.com/uvejota/edistribucion/",
+  "issue_tracker": "https://github.com/uvejota/edistribucion/",
   "dependencies": [],
-  "codeowners": ["@jagalindo", "@trocotronic"],
-  "requirements": ["bs4","requests"]
-
+  "codeowners": [],
+  "requirements": ["bs4","requests"],
+  "version": 1.0
 }
