@@ -8,10 +8,47 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
 FRIENDLY_NAME = 'EDS Consumo eléctrico'
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+DOMAIN = "edistribucion"
 
-    """Set up the sensor platform."""
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Set up platform."""
     add_entities([EDSSensor(config['username'],config['password'])])
+    # Return boolean to indicate that initialization was successful.
+    return True
+
+
+class EDSPlatform(Entity):
+
+
+
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        edis = Edistribucion(self._usr,self._pw)
+        edis.login()
+        r = edis.get_cups()
+        cups = r['data']['lstCups'][0]['Id']
+        meter = edis.get_meter(cups)
+        _LOGGER.debug(meter)
+        _LOGGER.debug(meter['data']['potenciaActual'])
+        attributes = {}
+        attributes['CUPS'] = r['data']['lstCups'][0]['Name']
+        attributes['Estado ICP'] = meter['data']['estadoICP']
+        attributes['Consumo Total'] = str(meter['data']['totalizador']) + ' kWh'
+        attributes['Carga actual'] = meter['data']['percent']
+        attributes['Potencia Contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+        self._state = meter['data']['potenciaActual']
+        self._attributes = attributes
+
+     def handle_hello(call):
+        """Handle the service call."""
+        name = call.data.get(ATTR_NAME, DEFAULT_NAME)
+
+        hass.states.set("hello_service.hello", name)
+
+    hass.services.register(DOMAIN, "hello", handle_hello)   
+
+
+
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
