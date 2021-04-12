@@ -8,6 +8,11 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
 FRIENDLY_NAME = 'EDS Consumo eléctrico'
 
+def setup_platform(hass, config, add_entities, discovery_info=None):
+
+    """Set up the sensor platform."""
+    add_entities([EDSSensor(config['username'],config['password'])])
+
 class EDSSensor(Entity):
     """Representation of a Sensor."""
 
@@ -53,7 +58,7 @@ class EDSSensor(Entity):
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
         attributes = {}
-        attributes['CUPS'] = r['data']['lstCups'][0]['Id']
+        attributes['CUPS'] = r['data']['lstCups'][0]['Name]
         attributes['Estado ICP'] = meter['data']['estadoICP']
         attributes['Consumo Total'] = str(meter['data']['totalizador']) + ' kWh'
         attributes['Carga actual'] = meter['data']['percent']
