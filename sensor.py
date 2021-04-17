@@ -61,8 +61,8 @@ class EDSSensor(Entity):
         cups = r[0]['CUPS_Id']
         cont = r[0]['Id']
 
-        attributes['CUPS'] = cups
-        attributes['Cont'] = cont
+        attributes['CUPS'] = r[0]['CUPS'] # this is the name
+        #attributes['Cont'] = cont # not really needed
 
         # First retrieve historical data (this is fast)
         # TODO: this should be done just once a day
