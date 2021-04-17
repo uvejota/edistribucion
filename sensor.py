@@ -9,6 +9,8 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
 FRIENDLY_NAME = 'EDS Consumo eléctrico'
 
+DEFAULT_SAVE_SESSION = True
+
 SERVICE_RECONNECT_ICP = "reconnect_icp"
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
@@ -20,19 +22,22 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
             {},
             EDSSensor.reconnect_ICP.__name__,
         )
+    #If save_session is not defined at configuration.yaml, default is DEFAULT_SAVE_SESSION
+    save_session = config.get('save_session', DEFAULT_SAVE_SESSION)
 
     """Set up the sensor platform."""
-    add_entities([EDSSensor(config['username'],config['password'])])
+    add_entities([EDSSensor(config['username'],config['password'],save_session)])
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
 
-    def __init__(self,usr,pw):
+    def __init__(self,usr,pw,session):
         """Initialize the sensor."""
         self._state = None
         self._attributes = {}
         self._usr=usr
         self._pw=pw
+        self._session=session
 
     @property
     def name(self):
@@ -69,7 +74,7 @@ class EDSSensor(Entity):
 
         # Login into the edistribucion platform. 
         # TODO: try to save sessions by calling Edistribucion(self._usr,self._pw,True), for some reason this has been disabled until now
-        edis = Edistribucion(self._usr,self._pw,True)
+        edis = Edistribucion(self._usr,self._pw,self._session)
         edis.login()
         # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
         r = edis.get_list_cups()
