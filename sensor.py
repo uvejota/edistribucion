@@ -54,7 +54,7 @@ class EDSSensor(Entity):
 
         # Login into the edistribucion platform. 
         # TODO: try to save sessions by calling Edistribucion(self._usr,self._pw,True), for some reason this has been disabled until now
-        edis = Edistribucion(self._usr,self._pw)
+        edis = Edistribucion(self._usr,self._pw,True)
         edis.login()
         # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
         r = edis.get_list_cups()
