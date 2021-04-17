@@ -1,40 +1,68 @@
 # edistribucion
-Este es un proyecto apra poder consumir la API de e-distribución (Endesa distribución) y exponerla como un sensor dentro de Home Assistant. 
-Actualmente está usando como backend el crawler de trocotronic. Por defecto está configurado para hacer update de nuestro contrador de edistribución cada 10 minutos. Esto es configurable en el configuration.yml no obstante no es recomendable dado que puede dar lugar a baneos por parte de la distribuidora. 
+Integración para Home Assistant para la obtención de datos desde la web e-distribución. 
 
-Como instalarlo:
+## Instalación
 
-Simplemente copia el contenido de este repositorio en la carpeta custom components y añade al configuration.yml el siguiente contenido:
+1. Añade este repositorio (https://github.com/uvejota/edistribucion) a los repositorios personalizados de HACS. 
+2. Luego podrás instalar la integración.
+3. Añade la siguiente configuración en Home Assistant (e.g., `configuration.yml`)
 
 ``` yaml
-  
+
 sensor:
   - platform: edistribucion
-    username: "username sin comillas"
-    password: "password sin comillas"
-    #scan_interval: 60 #This is in seconds. Mejor no usar para evitar baneos
+    username: 000000000A # username (e.g., dni)
+    password: mySecurePassword # password
 ```
 
- 
-# ¿Se pueden crear sensores con los atributos? 
-Sí, se pueden crear de esta forma:
+4. Representa la información obtenida con una tarjeta en Home Assistant, mientras trabajamos en su desarrollo puedes usar esta como modelo :-)
 
 ``` yaml
-platform: template
-sensors:
-porcentaje_consumo_maximo:
-friendly_name: "Porcentaje Consumo Máximo"
-entity_id: sensor.eds_power_consumption
-unit_of_measurement: '%'
-value_template: "{{ state_attr('sensor.eds_power_consumption','Porcentaje actual')|replace(',','.')|replace('%','')|float }}"
+
+type: vertical-stack
+cards:
+  - type: grid
+    cards:
+      - type: button
+        tap_action:
+          action: call-service
+          service: homeassistant.update_entity
+          service_data: {}
+          target:
+            entity_id: sensor.eds_consumo_electrico
+        show_state: false
+        icon: 'hass:update'
+    square: true
+    columns: 6
+  - type: sensor
+    entity: sensor.eds_consumo_electrico
+    graph: line
+    name: Potencia instantánea
+  - type: grid
+    title: Resumen de consumos
+    cards:
+      - type: entity
+        entity: sensor.eds_consumo_electrico
+        name: Ayer
+        attribute: Consumo total (ayer)
+    columns: 2
+    square: false
+  - type: grid
+    cards:
+      - type: entity
+        entity: sensor.eds_consumo_electrico
+        attribute: Consumo total (7 días)
+        name: 7 días
+      - type: entity
+        entity: sensor.eds_consumo_electrico
+        attribute: Consumo total (30 días)
+        name: 30 días
+    columns: 2
+    square: false
 ```
-Thanks to bepece1
 
-TODO
-=======
-* Integrar el backend como dependencia pip
-* Implementar la reconexion del ICP en cuanto el backend lo soporte. 
+## Créditos
 
-Agradecimientos
-=======
-Agradecer a @trocotronic el trabajo de implementar el crwler para extraer los datos desde eds y a Miguel Macias por echar una mano animando a subir el código actualizado. 
+Repositorio mantenido por @uvejota y @jcortizronda como proyecto para el aprendizaje en tiempo libre y uso personal. 
+
+Este repositorio parte de un fork del trabajo original realizado por @jagalindo (integración) y @trocotronic (API).
