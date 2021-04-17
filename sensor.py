@@ -101,6 +101,11 @@ class EDSSensor(Entity):
         lastmonth_curve=edis.get_month_curve(cont,onemonthago)
         attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
 
+        thismonth = datetime.today().strftime("%m/%Y")
+        ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
+        maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
+        attributes['Máxima potencia registrada'] = maximeter_histogram['data']['maxValue']
+
         # Then retrieve instant data (this is slow)
         meter = edis.get_meter(cups)
         _LOGGER.debug(meter)
