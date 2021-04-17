@@ -105,8 +105,6 @@ class EDSSensor(Entity):
 
     def update(self):
         """Fetch new state data for the sensor."""
-        attributes = {}
-
         # Login into the edistribucion platform. 
         edis = Edistribucion(self._usr,self._pw,True)
         edis.login()
@@ -115,8 +113,8 @@ class EDSSensor(Entity):
         cups = r[0]['CUPS_Id']
         cont = r[0]['Id']
 
-        attributes['CUPS'] = r[0]['CUPS'] # this is the name
-        #attributes['Cont'] = cont # not really needed
+        self._attributes['CUPS'] = r[0]['CUPS'] # this is the name
+        #self._attributes['Cont'] = cont # not really needed
 
         # First retrieve historical data if first boot or starting a new day (this is fast)
         if self._is_first_boot or self._do_run_daily_tasks:
@@ -125,16 +123,16 @@ class EDSSensor(Entity):
             onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
 
             yesterday_curve=edis.get_day_curve(cont,yesterday)
-            attributes['Consumo total (ayer)'] = str(yesterday_curve['data']['totalValue']) + ' kWh'
+            self._attributes['Consumo total (ayer)'] = str(yesterday_curve['data']['totalValue']) + ' kWh'
             lastweek_curve=edis.get_week_curve(cont,sevendaysago)
-            attributes['Consumo total (7 días)'] = str(lastweek_curve['data']['totalValue']) + ' kWh'
+            self._attributes['Consumo total (7 días)'] = str(lastweek_curve['data']['totalValue']) + ' kWh'
             lastmonth_curve=edis.get_month_curve(cont,onemonthago)
-            attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
+            self._attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
 
             thismonth = datetime.today().strftime("%m/%Y")
             ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
             maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
-            attributes['Máxima potencia registrada'] = maximeter_histogram['data']['maxValue']
+            self._attributes['Máxima potencia registrada'] = maximeter_histogram['data']['maxValue']
 
         # Then retrieve instant data (this is slow)
 
@@ -142,20 +140,20 @@ class EDSSensor(Entity):
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
         
-        attributes['Estado ICP'] = meter['data']['estadoICP']
+        self._attributes['Estado ICP'] = meter['data']['estadoICP']
         self._total_consumption = float(meter['data']['totalizador'])
-        attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
-        attributes['Carga actual'] = meter['data']['percent']
-        attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+        self._attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
+        self._attributes['Carga actual'] = meter['data']['percent']
+        self._attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
         
         # if new day, store consumption
         if self._do_run_daily_tasks or self._is_first_boot:
             self._total_consumption_yesterday = float(self._total_consumption)
 
-        attributes['Consumo total (hoy)'] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
+        self._attributes['Consumo total (hoy)'] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
 
         self._state = meter['data']['potenciaActual']
-        self._attributes = attributes
+        #self._attributes = attributes
 
         # set flags down
         self._do_run_daily_tasks = False
