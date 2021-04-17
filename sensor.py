@@ -60,8 +60,17 @@ class EDSSensor(Entity):
         return self._attributes
 
     def reconnect_ICP (self):
-        ### to do
+        ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
+        # Login into the edistribucion platform. 
+        edis = Edistribucion(self._usr,self._pw,True)
+        edis.login()
+        # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
+        r = edis.get_list_cups()
+        cups = r[0]['CUPS_Id']
+        # Get response
+        response = edis.reconnect_ICP(cups)
+        _LOGGER.debug(response)
 
     def update(self):
         """Fetch new state data for the sensor."""
