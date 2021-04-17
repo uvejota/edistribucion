@@ -383,3 +383,9 @@ class Edistribucion():
         r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
         return r
         
+    def get_year_maximeter (self, cups, date_start, date_end):
+        data = {
+            'message': '{"actions":[{"id":"688;a","descriptor":"apex://WP_MaximeterHistogram_CTRL/ACTION$getHistogramPoints","callingDescriptor":"markup://c:WP_MaximeterHistogramDetail","params":{"mapParams":{"startDate":"'+date_start+'","endDate":"'+date_end+'","id":"'+cups+'","sIdentificador":"'+self.__identities['account_id']+'"}}}]}',
+            }
+        r = self.__command('other.WP_MaximeterHistogram_CTRL.getHistogramPoints=1', post=data)
+        return r
