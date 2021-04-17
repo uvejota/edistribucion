@@ -57,27 +57,28 @@ class Edistribucion():
     __appInfo = None
     __context = None
     __access_date = datetime.now()
+    __do_save_session = False
     
-    def __init__(self, user, password, debug_level=logging.INFO):
+    def __init__(self, user, password, do_save_session=False, debug_level=logging.INFO):
         self.__session = requests.Session()
         self.__credentials['user'] = user
         self.__credentials['password'] = password
-        '''
-        try:
-            with open(Edistribucion.SESSION_FILE, 'rb') as f:
-                self.__session.cookies.update(pickle.load(f))
-        except FileNotFoundError:
-            logging.warning('Session file not found')
-        try:
-            with open(Edistribucion.ACCESS_FILE, 'rb') as f:
-                d = json.load(f)
-                self.__token = d['token']
-                self.__identities = d['identities']
-                self.__context = d['context']
-                self.__access_date = datetime.fromisoformat(d['date'])
-        except FileNotFoundError:
-            logging.warning('Access file not found')
-        '''
+        self.__do_save_session=do_save_session
+        if self.__do_save_session:
+            try:
+                with open(Edistribucion.SESSION_FILE, 'rb') as f:
+                    self.__session.cookies.update(pickle.load(f))
+            except FileNotFoundError:
+                logging.warning('Session file not found')
+            try:
+                with open(Edistribucion.ACCESS_FILE, 'rb') as f:
+                    d = json.load(f)
+                    self.__token = d['token']
+                    self.__identities = d['identities']
+                    self.__context = d['context']
+                    self.__access_date = datetime.fromisoformat(d['date'])
+            except FileNotFoundError:
+                logging.warning('Access file not found')
         logging.getLogger().setLevel(debug_level)
         
     def __get_url(self, url,get=None,post=None,json=None,cookies=None,headers=None):
@@ -177,9 +178,10 @@ class Edistribucion():
         t['identities'] = self.__identities
         t['context'] = self.__context
         t['date'] = datetime.now()
-        #with open(Edistribucion.ACCESS_FILE, 'w') as f:
-        #    json.dump(t, f, default=serialize_date)
-        #logging.info('Saving access to file')
+        if self.__do_save_session:
+            with open(Edistribucion.ACCESS_FILE, 'w') as f:
+                json.dump(t, f, default=serialize_date)
+            logging.info('Saving access to file')
         
     def login(self):
         logging.info('Loging')
@@ -247,9 +249,10 @@ class Edistribucion():
         self.__identities['name'] = r['Name']
         logging.info('Received name: %s (%s)',r['Name'],r['visibility']['Visible_Account__r']['Identity_number__c'])
         logging.debug('Account_id: %s', self.__identities['account_id'])
-        #with open(Edistribucion.SESSION_FILE, 'wb') as f:
-        #    pickle.dump(self.__session.cookies, f)
-        #logging.debug('Saving session')
+        if self.__do_save_session:
+            with open(Edistribucion.SESSION_FILE, 'wb') as f:
+                pickle.dump(self.__session.cookies, f)
+            logging.debug('Saving session')
         self.__save_access()
             
     def get_login_info(self):
@@ -359,4 +362,24 @@ class Edistribucion():
         r = self.__command('other.WP_Measure_v3_CTRL.getChartPoints=1', post=data)
         return r['data']['lstData']
 
+    def get_day_curve (self, cont, date_start):
+        data = {
+            'message': '{"actions":[{"id":"751;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"1","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
+            }
+        r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
+        return r
+    
+    def get_week_curve (self, cont, date_start):
+        data = {
+            'message': '{"actions":[{"id":"1497;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"2","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
+            }
+        r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
+        return r
+
+    def get_month_curve (self, cont, date_start):
+        data = {
+            'message': '{"actions":[{"id":"1461;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"3","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
+            }
+        r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
+        return r
         
