@@ -1,6 +1,7 @@
 import logging
 from homeassistant.const import POWER_KILO_WATT
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers import config_validation as cv, entity_platform
 from .api.EdistribucionAPI import Edistribucion
 from datetime import datetime, timedelta
 
@@ -8,7 +9,17 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
 FRIENDLY_NAME = 'EDS Consumo eléctrico'
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+SERVICE_RECONNECT_ICP = "reconnect_icp"
+
+async def async_setup_platform(hass, config, add_entities, discovery_info=None):
+
+    # Register services
+    platform = entity_platform.current_platform.get()
+    platform.async_register_entity_service(
+            SERVICE_RECONNECT_ICP,
+            {},
+            EDSSensor.reconnect_ICP.__name__,
+        )
 
     """Set up the sensor platform."""
     add_entities([EDSSensor(config['username'],config['password'])])
@@ -47,6 +58,10 @@ class EDSSensor(Entity):
     def device_state_attributes(self):
         """Return the state attributes."""
         return self._attributes
+
+    def reconnect_ICP (self):
+        ### to do
+        _LOGGER.debug("ICP reconnect service called")
 
     def update(self):
         """Fetch new state data for the sensor."""

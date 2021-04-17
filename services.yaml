@@ -1,0 +1,6 @@
+reconnect_icp:
+  description: Reconectar el ICP
+  fields:
+    entity_id:
+      description: Nombre de la entidad EDSSensor
+      example: "sensor.my_eds_sensor"
