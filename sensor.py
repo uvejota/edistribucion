@@ -2,7 +2,7 @@ import logging
 from homeassistant.const import POWER_KILO_WATT
 from homeassistant.helpers.entity import Entity
 from .api.EdistribucionAPI import Edistribucion
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
@@ -50,19 +50,43 @@ class EDSSensor(Entity):
 
     def update(self):
         """Fetch new state data for the sensor."""
+        attributes = {}
+
+        # Login into the edistribucion platform. 
+        # TODO: try to save sessions by calling Edistribucion(self._usr,self._pw,True), for some reason this has been disabled until now
         edis = Edistribucion(self._usr,self._pw)
         edis.login()
-        r = edis.get_cups()
-        cups = r['data']['lstCups'][0]['Id']
+        # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
+        r = edis.get_list_cups()
+        cups = r[0]['CUPS_Id']
+        cont = r[0]['Id']
+
+        attributes['CUPS'] = cups
+        attributes['Cont'] = cont
+
+        # First retrieve historical data (this is fast)
+        # TODO: this should be done just once a day
+        yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
+        sevendaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
+        onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
+
+        yesterday_curve=edis.get_day_curve(cont,yesterday)
+        attributes['Consumo total (ayer)'] = str(yesterday_curve['data']['totalValue']) + ' kWh'
+        lastweek_curve=edis.get_week_curve(cont,sevendaysago)
+        attributes['Consumo total (7 días)'] = str(lastweek_curve['data']['totalValue']) + ' kWh'
+        lastmonth_curve=edis.get_month_curve(cont,onemonthago)
+        attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
+
+        # Then retrieve instant data (this is slow)
         meter = edis.get_meter(cups)
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
-        attributes = {}
-        attributes['CUPS'] = r['data']['lstCups'][0]['Name']
+        
         attributes['Estado ICP'] = meter['data']['estadoICP']
-        attributes['Consumo Total'] = str(meter['data']['totalizador']) + ' kWh'
+        attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
         attributes['Carga actual'] = meter['data']['percent']
-        attributes['Potencia Contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+        attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+
         self._state = meter['data']['potenciaActual']
         self._attributes = attributes
         

@@ -33,12 +33,20 @@ if not ONLYNEW:
 
 # Try new stuff
 yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
-eightdaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
+sevendaysago = (datetime.today()-timedelta(days=7)).strftime("%Y-%m-%d")
 onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
 
 yesterday_curve=edis.get_day_curve(cont,yesterday)
-print('Yesterday curve: ', yesterday_curve)
-lastweek_curve=edis.get_week_curve(cont,eightdaysago)
-print('Lastweek curve: ', lastweek_curve)
+#print('Yesterday curve: ', yesterday_curve)
+print(yesterday)
+print('Yesterday Total Power: ', yesterday_curve['data']['totalValue'])
+
+lastweek_curve=edis.get_week_curve(cont,sevendaysago)
+#print('Lastweek curve: ', lastweek_curve)
+print(sevendaysago)
+print('Last week Total Power: ', lastweek_curve['data']['totalValue'])
+
 lastmonth_curve=edis.get_month_curve(cont,onemonthago)
-print('Lastmonth curve: ', lastmonth_curve)
+#print('Lastmonth curve: ', lastmonth_curve)
+print(onemonthago)
+print('Last month Total Power: ', lastmonth_curve['data']['totalValue'])
