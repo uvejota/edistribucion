@@ -45,32 +45,52 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         )
 
     # Register listeners
-    def handle_next_day (self):
+    def handle_next_day (event):
         _LOGGER.debug("handle_next_day called")
         for entity in entities:
             entity.handle_next_day ()
+        schedule_next_day ()
 
-    def handle_next_6am (self):
+    def handle_next_6am (event):
         _LOGGER.debug("handle_next_6am called")
         for entity in entities:
             entity.handle_next_6am ()
+        schedule_next_6am ()
+
+    ''' # just for testing purposes
+    def test_handle (event):
+        _LOGGER.debug("test_handle called")
+        for entity in entities:
+            entity.test_handle ()
+        schedule_next_10s ()
+    '''
 
     # Set schedulers
-    def schedule_next_day (self):
+    def schedule_next_day ():
         _LOGGER.debug("schedule_next_day called")
-        today = datetime.today()
-        tomorrow_begins = today.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+        now = datetime.now()
+        tomorrow_begins = now.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         async_track_point_in_time(
-            hass, handle_next_day, datetime.as_utc(tomorrow_begins)
+            hass, handle_next_day, tomorrow_begins
         )
 
-    def schedule_next_6am (self):
+    def schedule_next_6am ():
         _LOGGER.debug("schedule_next_6am called")
-        today = datetime.today()
-        tomorrow_begins = today.replace(hour=6, minute=0, second=0) + timedelta(days=1)
+        now = datetime.now()
+        tomorrow_begins = now.replace(hour=6, minute=0, second=0) + timedelta(days=1)
         async_track_point_in_time(
-            hass, handle_next_6am, datetime.as_utc(tomorrow_begins)
+            hass, handle_next_6am, tomorrow_begins
         )
+    
+    ''' # just for testing purposes
+    def schedule_next_10s ():
+        _LOGGER.debug("schedule_next_10s called")
+        now = datetime.now()
+        next_10s_in = now + timedelta(seconds=10)
+        async_track_point_in_time(
+            hass, test_handle, next_10s_in
+        )
+    '''
 
     # Create sensor entities and add them
     eds = EDSSensor(config['username'],config['password'],save_session)
@@ -78,8 +98,12 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     add_entities(entities)
 
     # Start schedulers
-    schedule_next_day
-    schedule_next_6am
+    schedule_next_day()
+    schedule_next_6am()
+    
+    ''' # just for testing purposes
+    schedule_next_10s()
+    '''
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
@@ -144,6 +168,11 @@ class EDSSensor(Entity):
 
     def handle_next_6am (self):
         self._do_run_6am_tasks = True
+
+    ''' # just for testing purposes
+    def test_handle (self):
+        _LOGGER.debug("test_handle called!")
+    '''
 
     def reconnect_ICP (self):
         ### Untested... impossible under the current setup
