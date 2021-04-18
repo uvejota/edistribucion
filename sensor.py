@@ -111,8 +111,8 @@ class EDSSensor(Entity):
         self._attributes[ATTR_POWER_LIMIT] = ""
 
         # Login into the cloud platform
-        self._edis = Edistribucion(self._usr,self._pw,self._session)
-        self._edis.login()
+        self._edis = None
+
 
     @property
     def name(self):
@@ -148,6 +148,9 @@ class EDSSensor(Entity):
     def reconnect_ICP (self):
         ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
+        if self._edis is None:
+            self._edis = Edistribucion(self._usr,self._pw,self._session)
+            self._edis.login()
         # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
         r = self._edis.get_list_cups()
         cups = r[0]['CUPS_Id']
@@ -157,6 +160,9 @@ class EDSSensor(Entity):
 
     def update(self):
         """Fetch new state data for the sensor."""
+        if self._edis is None:
+            self._edis = Edistribucion(self._usr,self._pw,self._session)
+            self._edis.login()
 
         # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
         r = self._edis.get_list_cups()
@@ -190,7 +196,7 @@ class EDSSensor(Entity):
         meter = self._edis.get_meter(cups)
         self._attributes[ATTR_ICPSTATUS] = meter['data']['estadoICP']
         self._total_consumption = float(meter['data']['totalizador'])
-        self._attributes[ATTR_CONSUMPTION_TODAY] = str(meter['data']['totalizador']) + ' kWh'
+        self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']) + ' kWh'
         self._attributes[ATTR_LOAD_NOW] = meter['data']['percent']
         self._attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada']) + ' kW'
         
