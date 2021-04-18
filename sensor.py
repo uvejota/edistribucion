@@ -32,15 +32,30 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
     # Register listeners
     def handle_next_day (self):
+        _LOGGER.debug("handle_next_day called")
         for entity in entities:
             entity.handle_next_day ()
 
+    def handle_next_6am (self):
+        _LOGGER.debug("handle_next_6am called")
+        for entity in entities:
+            entity.handle_next_6am ()
+
     # Set schedulers
     def schedule_next_day (self):
+        _LOGGER.debug("schedule_next_day called")
         today = datetime.today()
         tomorrow_begins = today.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         async_track_point_in_time(
             hass, handle_next_day, datetime.as_utc(tomorrow_begins)
+        )
+
+    def schedule_next_6am (self):
+        _LOGGER.debug("schedule_next_6am called")
+        today = datetime.today()
+        tomorrow_begins = today.replace(hour=6, minute=0, second=0) + timedelta(days=1)
+        async_track_point_in_time(
+            hass, handle_next_6am, datetime.as_utc(tomorrow_begins)
         )
 
     # Create sensor entities and add them
@@ -50,6 +65,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
     # Start schedulers
     schedule_next_day
+    schedule_next_6am
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
@@ -64,6 +80,7 @@ class EDSSensor(Entity):
 
         self._is_first_boot = True
         self._do_run_daily_tasks = False
+        self._do_run_6am_tasks = False
 
         self._total_consumption = 0
         self._total_consumption_yesterday = 0
@@ -96,6 +113,9 @@ class EDSSensor(Entity):
     def handle_next_day (self):
         self._do_run_daily_tasks = True
 
+    def handle_next_6am (self):
+        self._do_run_6am_tasks = True
+
     def reconnect_ICP (self):
         ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
@@ -124,7 +144,8 @@ class EDSSensor(Entity):
         #self._attributes['Cont'] = cont # not really needed
 
         # First retrieve historical data if first boot or starting a new day (this is fast)
-        if self._is_first_boot or self._do_run_daily_tasks:
+        if self._is_first_boot or self._do_run_6am_tasks:
+            _LOGGER.debug("fetching historical data")
             yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
             sevendaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
             onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
@@ -141,12 +162,9 @@ class EDSSensor(Entity):
             maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
             self._attributes['Máxima potencia registrada'] = maximeter_histogram['data']['maxValue']
 
-        # Then retrieve instant data (this is slow)
-
+        # Then retrieve real-time data (this is slow)
+        _LOGGER.debug("fetching real-time data")
         meter = edis.get_meter(cups)
-        _LOGGER.debug(meter)
-        _LOGGER.debug(meter['data']['potenciaActual'])
-        
         self._attributes['Estado ICP'] = meter['data']['estadoICP']
         self._total_consumption = float(meter['data']['totalizador'])
         self._attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
@@ -154,15 +172,18 @@ class EDSSensor(Entity):
         self._attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
         
         # if new day, store consumption
+        _LOGGER.debug("doing internal calculus")
         if self._do_run_daily_tasks or self._is_first_boot:
             self._total_consumption_yesterday = float(self._total_consumption)
 
         self._attributes['Consumo total (hoy)'] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
 
         self._state = meter['data']['potenciaActual']
-        #self._attributes = attributes
+        
+        _LOGGER.debug("Attributes updated for EDSSensor: " + self._attributes)
 
         # set flags down
         self._do_run_daily_tasks = False
         self._is_first_boot = False
+        self._do_run_6am_tasks = False
         
