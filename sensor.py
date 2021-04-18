@@ -2,6 +2,7 @@ import logging
 from homeassistant.const import POWER_KILO_WATT
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers.event import async_track_point_in_time
 from .api.EdistribucionAPI import Edistribucion
 from datetime import datetime, timedelta
 
@@ -15,6 +16,12 @@ SERVICE_RECONNECT_ICP = "reconnect_icp"
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
+    # Define entities
+    entities = []
+
+    #If save_session is not defined at configuration.yaml, default is DEFAULT_SAVE_SESSION
+    save_session = config.get('save_session', DEFAULT_SAVE_SESSION)
+
     # Register services
     platform = entity_platform.current_platform.get()
     platform.async_register_entity_service(
@@ -22,11 +29,27 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
             {},
             EDSSensor.reconnect_ICP.__name__,
         )
-    #If save_session is not defined at configuration.yaml, default is DEFAULT_SAVE_SESSION
-    save_session = config.get('save_session', DEFAULT_SAVE_SESSION)
 
-    """Set up the sensor platform."""
-    add_entities([EDSSensor(config['username'],config['password'],save_session)])
+    # Register listeners
+    def handle_next_day (self):
+        for entity in entities:
+            entity.handle_next_day ()
+
+    # Set schedulers
+    def schedule_next_day (self):
+        today = datetime.today()
+        tomorrow_begins = today.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+        async_track_point_in_time(
+            hass, handle_next_day, datetime.as_utc(tomorrow_begins)
+        )
+
+    # Create sensor entities and add them
+    eds = EDSSensor(config['username'],config['password'],save_session)
+    entities.append(eds)
+    add_entities(entities)
+
+    # Start schedulers
+    schedule_next_day
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
@@ -38,6 +61,12 @@ class EDSSensor(Entity):
         self._usr=usr
         self._pw=pw
         self._session=session
+
+        self._is_first_boot = True
+        self._do_run_daily_tasks = False
+
+        self._total_consumption = 0
+        self._total_consumption_yesterday = 0
 
     @property
     def name(self):
@@ -64,14 +93,24 @@ class EDSSensor(Entity):
         """Return the state attributes."""
         return self._attributes
 
+    def handle_next_day (self):
+        self._do_run_daily_tasks = True
+
     def reconnect_ICP (self):
-        ### to do
+        ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
+        # Login into the edistribucion platform. 
+        edis = Edistribucion(self._usr,self._pw,True)
+        edis.login()
+        # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
+        r = edis.get_list_cups()
+        cups = r[0]['CUPS_Id']
+        # Get response
+        response = edis.reconnect_ICP(cups)
+        _LOGGER.debug(response)
 
     def update(self):
         """Fetch new state data for the sensor."""
-        attributes = {}
-
         # Login into the edistribucion platform. 
         # TODO: try to save sessions by calling Edistribucion(self._usr,self._pw,True), for some reason this has been disabled until now
         edis = Edistribucion(self._usr,self._pw,self._session)
@@ -81,32 +120,49 @@ class EDSSensor(Entity):
         cups = r[0]['CUPS_Id']
         cont = r[0]['Id']
 
-        attributes['CUPS'] = r[0]['CUPS'] # this is the name
-        #attributes['Cont'] = cont # not really needed
+        self._attributes['CUPS'] = r[0]['CUPS'] # this is the name
+        #self._attributes['Cont'] = cont # not really needed
 
-        # First retrieve historical data (this is fast)
-        # TODO: this should be done just once a day
-        yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
-        sevendaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
-        onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
+        # First retrieve historical data if first boot or starting a new day (this is fast)
+        if self._is_first_boot or self._do_run_daily_tasks:
+            yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
+            sevendaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
+            onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
 
-        yesterday_curve=edis.get_day_curve(cont,yesterday)
-        attributes['Consumo total (ayer)'] = str(yesterday_curve['data']['totalValue']) + ' kWh'
-        lastweek_curve=edis.get_week_curve(cont,sevendaysago)
-        attributes['Consumo total (7 días)'] = str(lastweek_curve['data']['totalValue']) + ' kWh'
-        lastmonth_curve=edis.get_month_curve(cont,onemonthago)
-        attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
+            yesterday_curve=edis.get_day_curve(cont,yesterday)
+            self._attributes['Consumo total (ayer)'] = str(yesterday_curve['data']['totalValue']) + ' kWh'
+            lastweek_curve=edis.get_week_curve(cont,sevendaysago)
+            self._attributes['Consumo total (7 días)'] = str(lastweek_curve['data']['totalValue']) + ' kWh'
+            lastmonth_curve=edis.get_month_curve(cont,onemonthago)
+            self._attributes['Consumo total (30 días)'] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
+
+            thismonth = datetime.today().strftime("%m/%Y")
+            ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
+            maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
+            self._attributes['Máxima potencia registrada'] = maximeter_histogram['data']['maxValue']
 
         # Then retrieve instant data (this is slow)
+
         meter = edis.get_meter(cups)
         _LOGGER.debug(meter)
         _LOGGER.debug(meter['data']['potenciaActual'])
         
-        attributes['Estado ICP'] = meter['data']['estadoICP']
-        attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
-        attributes['Carga actual'] = meter['data']['percent']
-        attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+        self._attributes['Estado ICP'] = meter['data']['estadoICP']
+        self._total_consumption = float(meter['data']['totalizador'])
+        self._attributes['Consumo total'] = str(meter['data']['totalizador']) + ' kWh'
+        self._attributes['Carga actual'] = meter['data']['percent']
+        self._attributes['Potencia contratada'] = str(meter['data']['potenciaContratada']) + ' kW'
+        
+        # if new day, store consumption
+        if self._do_run_daily_tasks or self._is_first_boot:
+            self._total_consumption_yesterday = float(self._total_consumption)
+
+        self._attributes['Consumo total (hoy)'] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
 
         self._state = meter['data']['potenciaActual']
-        self._attributes = attributes
+        #self._attributes = attributes
+
+        # set flags down
+        self._do_run_daily_tasks = False
+        self._is_first_boot = False
         
