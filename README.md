@@ -43,6 +43,10 @@ cards:
     cards:
       - type: entity
         entity: sensor.eds_consumo_electrico
+        attribute: Consumo total (hoy)
+        name: Hoy
+      - type: entity
+        entity: sensor.eds_consumo_electrico
         name: Ayer
         attribute: Consumo total (ayer)
     columns: 2
