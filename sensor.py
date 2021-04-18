@@ -18,6 +18,7 @@ DEFAULT_SAVE_SESSION = True
 SERVICE_RECONNECT_ICP = "reconnect_icp"
 
 # Attributes
+ATTR_CUPS_NAME = "CUPS"
 ATTR_CONSUMPTION_TODAY = "Consumo total (hoy)"
 ATTR_CONSUMPTION_YESTERDAY = "Consumo total (ayer)"
 ATTR_CONSUMPTION_7DAYS = "Consumo total (7 días)"
@@ -124,6 +125,7 @@ class EDSSensor(Entity):
         self._total_consumption_yesterday = 0
 
         # Initializing attributes to establish the order
+        self._attributes[ATTR_CUPS_NAME] = ""
         self._attributes[ATTR_CONSUMPTION_TODAY] = ""
         self._attributes[ATTR_CONSUMPTION_YESTERDAY] = ""
         self._attributes[ATTR_CONSUMPTION_7DAYS] = ""
@@ -198,7 +200,7 @@ class EDSSensor(Entity):
         cups = r[0]['CUPS_Id']
         cont = r[0]['Id']
 
-        self._attributes['CUPS'] = r[0]['CUPS'] # this is the name
+        self._attributes[ATTR_CUPS_NAME] = r[0]['CUPS'] # this is the name
 
         # First retrieve historical data if first boot or starting a new day (this is fast)
         if self._is_first_boot or self._do_run_6am_tasks:
@@ -215,18 +217,18 @@ class EDSSensor(Entity):
             lastmonth_curve=self._edis.get_month_curve(cont,onemonthago)
             maximeter_histogram = self._edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
             # store historical data as attributes
-            self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']) + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_7DAYS] = str(lastweek_curve['data']['totalValue']) + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_30DAYS] = str(lastmonth_curve['data']['totalValue']) + ' kWh'
-            self._attributes[ATTR_MAXPOWER_1YEAR] = maximeter_histogram['data']['maxValue']
+            self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_7DAYS] = str(lastweek_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_30DAYS] = str(lastmonth_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_MAXPOWER_1YEAR] = str(maximeter_histogram['data']['maxValue']).replace(".","").replace(",",".")
 
         # Then retrieve real-time data (this is slow)
         _LOGGER.debug("fetching real-time data")
         meter = self._edis.get_meter(cups)
         self._attributes[ATTR_ICPSTATUS] = meter['data']['estadoICP']
-        self._total_consumption = float(meter['data']['totalizador'])
-        self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']) + ' kWh'
-        self._attributes[ATTR_LOAD_NOW] = meter['data']['percent']
+        self._total_consumption = float(str(meter['data']['totalizador']).replace(".","").replace(",","."))
+        self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']).replace(".","").replace(",",".") + ' kWh'
+        self._attributes[ATTR_LOAD_NOW] = str(meter['data']['percent']).replace(".","").replace(",",".")
         self._attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada']) + ' kW'
         
         # if new day, store consumption TODO fix bad scaling...
@@ -235,7 +237,7 @@ class EDSSensor(Entity):
             # if a new day has started, store last total consumption as the base for the daily calculus
             self._total_consumption_yesterday = float(self._total_consumption)
         # do the maths and update it during the day
-        self._attributes[ATTR_CONSUMPTION_TODAY] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
+        self._attributes[ATTR_CONSUMPTION_TODAY] = str((self._total_consumption) - (self._total_consumption_yesterday)) + ' kWh'
 
         # at this point, we should have update all attributes
         _LOGGER.debug("Attributes updated for EDSSensor: " + str(self._attributes))
