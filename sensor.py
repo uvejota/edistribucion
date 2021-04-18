@@ -203,11 +203,11 @@ class EDSSensor(Entity):
         self._attributes[ATTR_CONSUMPTION_TODAY] = str(self._total_consumption - self._total_consumption_yesterday) + ' kWh'
 
         # at this point, we should have update all attributes
-        _LOGGER.debug("Attributes updated for EDSSensor: " + self._attributes)
+        _LOGGER.debug("Attributes updated for EDSSensor: " + str(self._attributes))
 
         # Update the state of the Sensor
         self._state = meter['data']['potenciaActual']
-        _LOGGER.debug("State updated for EDSSensor: " + self._state)
+        _LOGGER.debug("State updated for EDSSensor: " + str(self._state))
 
         # set flags down
         self._do_run_daily_tasks = False
