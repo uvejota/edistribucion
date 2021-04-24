@@ -25,7 +25,9 @@ ATTR_CONSUMPTION_CURRPERIOD = "Consumo (factura actual)"
 ATTR_CONSUMPTION_LASTPERIOD = "Consumo (últ. factura)"
 ATTR_CONSUMPTION_ALWAYS = "Consumo total"
 ATTR_DAILYCONSUMPTION_CURRPERIOD = "Consumo diario medio (factura actual)"
+ATTR_DAYS_CURRPERIOD = "Días contabilizados (factura actual)"
 ATTR_DAILYCONSUMPTION_LASTPERIOD = "Consumo diario medio (últ. factura)"
+ATTR_DAYS_LASTPERIOD = "Días contabilizados (últ. factura)"
 ATTR_MAXPOWER_1YEAR = "Máxima potencia registrada"
 ATTR_ICPSTATUS = "Estado ICP"
 ATTR_LOAD_NOW = "Carga actual"
@@ -110,7 +112,9 @@ class EDSSensor(Entity):
         self._attributes[ATTR_CONSUMPTION_YESTERDAY] = ""
         self._attributes[ATTR_CONSUMPTION_ALWAYS] = ""
         self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = ""
+        self._attributes[ATTR_DAYS_LASTPERIOD] = ""
         self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = ""
+        self._attributes[ATTR_DAYS_CURRPERIOD] = ""
         self._attributes[ATTR_MAXPOWER_1YEAR] = ""
         self._attributes[ATTR_ICPSTATUS] = ""
         self._attributes[ATTR_LOAD_NOW] = ""
@@ -194,9 +198,11 @@ class EDSSensor(Entity):
             currcycle_curve=self._edis.get_custom_curve(cont,date_currcycle, date_yesterday)
             maximeter_histogram = self._edis.get_year_maximeter (cups, date_ayearago, date_currmonth)
             # store historical data as attributes
-            self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".")
+            self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","").replace(",",".")
+            self._attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - date_currcycle).days
+            self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","").replace(",",".")
+            self._attributes[ATTR_DAYS_LASTPERIOD] = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') - datetime.strptime(lastcycle['label'].split(' - ')[0], '%d/%m/%Y')).days
             self._attributes[ATTR_MAXPOWER_1YEAR] = str(maximeter_histogram['data']['maxValue']).replace(".","").replace(",",".")
 
         # Then retrieve real-time data (this is slow)
@@ -204,7 +210,7 @@ class EDSSensor(Entity):
         meter = self._edis.get_meter(cups)
         self._attributes[ATTR_ICPSTATUS] = meter['data']['estadoICP']
         self._total_consumption = float(str(meter['data']['totalizador']).replace(".","").replace(",","."))
-        self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']).replace(".","").replace(",",".") + ' kWh'
+        self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']).replace(".","").replace(",",".")
         self._attributes[ATTR_LOAD_NOW] = str(meter['data']['percent']).replace(".","").replace(",",".")
         self._attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada']) + ' kW'
         
@@ -214,7 +220,7 @@ class EDSSensor(Entity):
             # if a new day has started, store last total consumption as the base for the daily calculus
             self._total_consumption_yesterday = float(self._total_consumption)
         # do the maths and update it during the day
-        self._attributes[ATTR_CONSUMPTION_TODAY] = str((self._total_consumption) - (self._total_consumption_yesterday)) + ' kWh'
+        self._attributes[ATTR_CONSUMPTION_TODAY] = str((self._total_consumption) - (self._total_consumption_yesterday))
 
         # at this point, we should have update all attributes
         _LOGGER.debug("Attributes updated for EDSSensor: " + str(self._attributes))
