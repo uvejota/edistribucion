@@ -24,14 +24,12 @@ ATTR_CONSUMPTION_YESTERDAY = "Consumo (ayer)"
 ATTR_CONSUMPTION_CURRPERIOD = "Consumo (factura actual)"
 ATTR_CONSUMPTION_LASTPERIOD = "Consumo (últ. factura)"
 ATTR_CONSUMPTION_ALWAYS = "Consumo total"
-ATTR_DAILYCONSUMPTION_CURRPERIOD = "Consumo diario medio (factura actual)"
 ATTR_DAYS_CURRPERIOD = "Días contabilizados (factura actual)"
-ATTR_DAILYCONSUMPTION_LASTPERIOD = "Consumo diario medio (últ. factura)"
 ATTR_DAYS_LASTPERIOD = "Días contabilizados (últ. factura)"
 ATTR_MAXPOWER_1YEAR = "Máxima potencia registrada"
 ATTR_ICPSTATUS = "Estado ICP"
 ATTR_LOAD_NOW = "Carga actual"
-ATTR_POWER_LIMIT = "Potencia contratada"
+ATTR_POWER_LIMIT = "Potencia contratada (kW)"
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
@@ -110,10 +108,10 @@ class EDSSensor(Entity):
         self._attributes[ATTR_CUPS_NAME] = ""
         self._attributes[ATTR_CONSUMPTION_TODAY] = ""
         self._attributes[ATTR_CONSUMPTION_YESTERDAY] = ""
-        self._attributes[ATTR_CONSUMPTION_ALWAYS] = ""
         self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = ""
-        self._attributes[ATTR_DAYS_LASTPERIOD] = ""
         self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = ""
+        self._attributes[ATTR_CONSUMPTION_ALWAYS] = ""
+        self._attributes[ATTR_DAYS_LASTPERIOD] = ""
         self._attributes[ATTR_DAYS_CURRPERIOD] = ""
         self._attributes[ATTR_MAXPOWER_1YEAR] = ""
         self._attributes[ATTR_ICPSTATUS] = ""
@@ -212,7 +210,7 @@ class EDSSensor(Entity):
         self._total_consumption = float(str(meter['data']['totalizador']).replace(".","").replace(",","."))
         self._attributes[ATTR_CONSUMPTION_ALWAYS] = str(meter['data']['totalizador']).replace(".","").replace(",",".")
         self._attributes[ATTR_LOAD_NOW] = str(meter['data']['percent']).replace(".","").replace(",",".")
-        self._attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada']) + ' kW'
+        self._attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada'])
         
         # if new day, store consumption TODO fix bad scaling...
         _LOGGER.debug("doing internal calculus")
