@@ -5,9 +5,11 @@
 ONLYNEW = True
 
 import sys
+import json, requests
 from datetime import datetime, timedelta
 sys.path.append('..')
 from api.EdistribucionAPI import Edistribucion
+from pvpcbill import create_bill
 
 try:
     USER = sys.argv[1]
@@ -51,8 +53,24 @@ if not ONLYNEW:
     print(onemonthago)
     print('Last month Total Power: ', lastmonth_curve['data']['totalValue'])
 
-thismonth = datetime.today().strftime("%m/%Y")
-ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
-maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
-print(maximeter_histogram)
-print(maximeter_histogram['data']['maxValue'])
+    thismonth = datetime.today().strftime("%m/%Y")
+    ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
+    maximeter_histogram = edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
+    print(maximeter_histogram)
+    print(maximeter_histogram['data']['maxValue'])
+
+cycles = edis.get_list_cycles(cont)
+last_cycle = cycles['lstCycles'][0]
+print(last_cycle['label'])
+print(last_cycle['value'])
+cycle_curve = edis.get_cycle_curve(cont, last_cycle['label'], last_cycle['value'])
+print(cycle_curve['totalValue'])
+new_cycle_starting_date = datetime.strptime(last_cycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1)
+print(new_cycle_starting_date)
+thismonth_curve=edis.get_custom_curve(cont,new_cycle_starting_date.strftime("%Y-%m-%d"), datetime.today().strftime("%Y-%m-%d"))
+print('This month Total Power: ', thismonth_curve['data']['totalValue'])
+#csv = edis.get_cycle_csv(json.dumps(cycle_curve))
+#print(csv)
+#req = requests.get(csv_url)
+#url_content = req.content
+#print(url_content)

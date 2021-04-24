@@ -19,10 +19,10 @@ SERVICE_RECONNECT_ICP = "reconnect_icp"
 
 # Attributes
 ATTR_CUPS_NAME = "CUPS"
-ATTR_CONSUMPTION_TODAY = "Consumo total (hoy)"
-ATTR_CONSUMPTION_YESTERDAY = "Consumo total (ayer)"
-ATTR_CONSUMPTION_7DAYS = "Consumo total (7 días)"
-ATTR_CONSUMPTION_30DAYS = "Consumo total (30 días)"
+ATTR_CONSUMPTION_TODAY = "Consumo (hoy)"
+ATTR_CONSUMPTION_YESTERDAY = "Consumo (ayer)"
+ATTR_CONSUMPTION_CURRPERIOD = "Consumo (últ. factura)"
+ATTR_CONSUMPTION_LASTPERIOD = "Consumo (factura actual)"
 ATTR_CONSUMPTION_ALWAYS = "Consumo total"
 ATTR_MAXPOWER_1YEAR = "Máxima potencia registrada"
 ATTR_ICPSTATUS = "Estado ICP"
@@ -58,14 +58,6 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
             entity.handle_next_6am ()
         schedule_next_6am ()
 
-    ''' # just for testing purposes
-    def test_handle (event):
-        _LOGGER.debug("test_handle called")
-        for entity in entities:
-            entity.test_handle ()
-        schedule_next_10s ()
-    '''
-
     # Set schedulers
     def schedule_next_day ():
         _LOGGER.debug("schedule_next_day called")
@@ -82,16 +74,6 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         async_track_point_in_time(
             hass, handle_next_6am, tomorrow_begins
         )
-    
-    ''' # just for testing purposes
-    def schedule_next_10s ():
-        _LOGGER.debug("schedule_next_10s called")
-        now = datetime.now()
-        next_10s_in = now + timedelta(seconds=10)
-        async_track_point_in_time(
-            hass, test_handle, next_10s_in
-        )
-    '''
 
     # Create sensor entities and add them
     eds = EDSSensor(config['username'],config['password'],save_session)
@@ -101,10 +83,6 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     # Start schedulers
     schedule_next_day()
     schedule_next_6am()
-    
-    ''' # just for testing purposes
-    schedule_next_10s()
-    '''
 
 class EDSSensor(Entity):
     """Representation of a Sensor."""
@@ -128,9 +106,9 @@ class EDSSensor(Entity):
         self._attributes[ATTR_CUPS_NAME] = ""
         self._attributes[ATTR_CONSUMPTION_TODAY] = ""
         self._attributes[ATTR_CONSUMPTION_YESTERDAY] = ""
-        self._attributes[ATTR_CONSUMPTION_7DAYS] = ""
-        self._attributes[ATTR_CONSUMPTION_30DAYS] = ""
         self._attributes[ATTR_CONSUMPTION_ALWAYS] = ""
+        self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = ""
+        self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = ""
         self._attributes[ATTR_MAXPOWER_1YEAR] = ""
         self._attributes[ATTR_ICPSTATUS] = ""
         self._attributes[ATTR_LOAD_NOW] = ""
@@ -171,11 +149,6 @@ class EDSSensor(Entity):
     def handle_next_6am (self):
         self._do_run_6am_tasks = True
 
-    ''' # just for testing purposes
-    def test_handle (self):
-        _LOGGER.debug("test_handle called!")
-    '''
-
     def reconnect_ICP (self):
         ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
@@ -205,21 +178,23 @@ class EDSSensor(Entity):
         # First retrieve historical data if first boot or starting a new day (this is fast)
         if self._is_first_boot or self._do_run_6am_tasks:
             _LOGGER.debug("fetching historical data")
+            # fetch last cycle from list
+            cycles = self._edis.get_list_cycles(cont)
+            lastcycle = cycles['lstCycles'][0]
             # prepare some datetimes...
-            yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
-            sevendaysago = (datetime.today()-timedelta(days=8)).strftime("%Y-%m-%d")
-            onemonthago = (datetime.today()-timedelta(days=30)).strftime("%Y-%m-%d")
-            thismonth = datetime.today().strftime("%m/%Y")
-            ayearplusamonthago = (datetime.today()-timedelta(days=395)).strftime("%m/%Y")
+            date_yesterday = (datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d")
+            date_currmonth = datetime.today().strftime("%m/%Y")
+            date_ayearago = (datetime.today()-timedelta(days=365)).strftime("%m/%Y")
+            date_currcycle = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1)).strftime("%Y-%m-%d")
             # fetch historical data
-            yesterday_curve=self._edis.get_day_curve(cont,yesterday)
-            lastweek_curve=self._edis.get_week_curve(cont,sevendaysago)
-            lastmonth_curve=self._edis.get_month_curve(cont,onemonthago)
-            maximeter_histogram = self._edis.get_year_maximeter (cups, ayearplusamonthago, thismonth)
+            yesterday_curve=self._edis.get_day_curve(cont,date_yesterday)
+            lastcycle_curve = self._edis.get_cycle_curve(cont, lastcycle['label'], lastcycle['value'])
+            currcycle_curve=self._edis.get_custom_curve(cont,date_currcycle, date_yesterday)
+            maximeter_histogram = self._edis.get_year_maximeter (cups, date_ayearago, date_currmonth)
             # store historical data as attributes
             self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_7DAYS] = str(lastweek_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_30DAYS] = str(lastmonth_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
             self._attributes[ATTR_MAXPOWER_1YEAR] = str(maximeter_histogram['data']['maxValue']).replace(".","").replace(",",".")
 
         # Then retrieve real-time data (this is slow)

@@ -349,18 +349,27 @@ class Edistribucion():
 
     def get_list_cycles(self, cont):
         data = {
-            'message': '{"actions":[{"id":"1190;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getInfo","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"contId":"'+cont['Id']+'"},"longRunning":true}]}',
+            'message': '{"actions":[{"id":"1190;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getInfo","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"contId":"'+cont+'"},"longRunning":true}]}',
             }
         r = self.__command('other.WP_Measure_v3_CTRL.getInfo=1', post=data)
-        return r['data']['lstCycles']
+        return r['data']
         
       
-    def get_meas(self, cont, cycle):
+    def get_cycle_curve(self, cont, range, value):
         data = {
-            'message': '{"actions":[{"id":"1295;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPoints","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"cupsId":"'+cont['Id']+'","dateRange":"'+cycle['label']+'","cfactura":"'+cycle['value']+'"},"longRunning":true}]}',
+            'message': '{"actions":[{"id":"1295;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPoints","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"cupsId":"'+cont+'","dateRange":"'+range+'","cfactura":"'+value+'"},"longRunning":true}]}',
             }
         r = self.__command('other.WP_Measure_v3_CTRL.getChartPoints=1', post=data)
-        return r['data']['lstData']
+        return r['data']
+
+    def get_cycle_csv(self, jsondata):
+        data = {
+            'message': '{"actions":[{"id":"351;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$genericDownload","callingDescriptor":"markup://c:WP_Measure_Downloads_v4","params":{"options":{"typePM":"5","downloadType":"01","downloadFormat":"01"},"data":'+jsondata+'},"version":null}]}',
+            }
+        r = self.__command('other.WP_Measure_v3_CTRL.genericDownload=1', post=data)
+        url = r['data']['url']
+        r = self.__command(url, dashboard='https://zonaprivada.edistribucion.com')
+        return r.content
 
     def get_day_curve (self, cont, date_start):
         data = {
@@ -379,6 +388,13 @@ class Edistribucion():
     def get_month_curve (self, cont, date_start):
         data = {
             'message': '{"actions":[{"id":"1461;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"3","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
+            }
+        r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
+        return r
+
+    def get_custom_curve (self, cont, date_start, date_end):
+        data = {
+            'message': '{"actions":[{"id":"981;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_Advanced_v3","params":{"contId":"'+cont+'","type":"4","startDate":"'+date_start+'","endDate":"'+date_end+'"},"version":null,"longRunning":true}]}'
             }
         r = self.__command('other.WP_Measure_v3_CTRL.getChartPointsByRange=1', post=data)
         return r
