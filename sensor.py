@@ -200,7 +200,7 @@ class EDSSensor(Entity):
             # store historical data as attributes
             self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".")
             self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","").replace(",",".")
-            self._attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - date_currcycle).days
+            self._attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1))).days
             self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","").replace(",",".")
             self._attributes[ATTR_DAYS_LASTPERIOD] = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') - datetime.strptime(lastcycle['label'].split(' - ')[0], '%d/%m/%Y')).days
             self._attributes[ATTR_MAXPOWER_1YEAR] = str(maximeter_histogram['data']['maxValue']).replace(".","").replace(",",".")
