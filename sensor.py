@@ -194,7 +194,7 @@ class EDSSensor(Entity):
             # store historical data as attributes
             self._attributes[ATTR_CONSUMPTION_YESTERDAY] = str(yesterday_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
             self._attributes[ATTR_CONSUMPTION_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
-            self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['data']['totalValue']).replace(".","").replace(",",".") + ' kWh'
+            self._attributes[ATTR_CONSUMPTION_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","").replace(",",".") + ' kWh'
             self._attributes[ATTR_MAXPOWER_1YEAR] = str(maximeter_histogram['data']['maxValue']).replace(".","").replace(",",".")
 
         # Then retrieve real-time data (this is slow)
