@@ -270,7 +270,7 @@ class MasterSensor(Entity):
         _LOGGER.debug("Attributes updated for MasterSensor: " + str(self._attributes))
 
         # Update the state of the Sensor
-        self._state = float(self._attributes[ATTR_POWER_DEMAND])
+        self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
         _LOGGER.debug("State updated for MasterSensor: " + str(self._state))
 
         self.hass.data[DOMAIN] = self._attributes
@@ -291,7 +291,7 @@ class SlaveSensor(Entity):
         self._shouldpoll = should_poll
 
         try:
-            self._state = float(self.hass.data[DOMAIN][self._key])
+            self._state = float(self.hass.data[DOMAIN][self._key].replace(",","."))
         except: 
             self._state = None
         for attribute in attribute_keys:
@@ -348,7 +348,7 @@ class SlaveSensor(Entity):
         _LOGGER.debug("SlaveSensor:update called!")
         _LOGGER.debug("SlaveSensor {} updated from: {} to {}".format(self._key, str(self._attributes), str(self.hass.data[DOMAIN])))
         try:
-            self._state = float(self.hass.data[DOMAIN][self._key])
+            self._state = float(self.hass.data[DOMAIN][self._key].replace(",","."))
         except: 
             self._state = None
         for attribute in self._attributes:
