@@ -371,6 +371,7 @@ def _do_fetch (edis, attributes, cups_index=0):
     fetched_attributes = {}
 
     # fetch always CUPS/CONT values
+    edis.login()
     r = edis.get_list_cups()
     cups = r[cups_index]['CUPS_Id']
     cont = r[cups_index]['Id']
