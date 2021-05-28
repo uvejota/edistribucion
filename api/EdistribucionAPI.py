@@ -47,8 +47,8 @@ def serialize_date(dt):
 
 class Edistribucion():
     __session = None
-    SESSION_FILE = 'edistribucion.session'
-    ACCESS_FILE = 'edistribucion.access'
+    SESSION_FILE = '/tmp/edistribucion.session'
+    ACCESS_FILE = '/tmp/edistribucion.access'
     __token = 'undefined'
     __credentials = {}
     __dashboard = 'https://zonaprivada.edistribucion.com/areaprivada/s/sfsites/aura?'
