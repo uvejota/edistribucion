@@ -13,6 +13,7 @@ sensor:
   - platform: edistribucion
     username: 000000000A # username (e.g., dni)
     password: mySecurePassword # password
+    scan_interval: inSeconds # optional (default = 600)
 ```
 
 4. Representa la información obtenida con una tarjeta en Home Assistant, mientras trabajamos en su desarrollo puedes usar esta como modelo :-)
