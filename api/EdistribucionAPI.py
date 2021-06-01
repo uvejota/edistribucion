@@ -343,7 +343,7 @@ class Edistribucion():
                 c['Id'] = cont['Id']
                 c['Active'] = False if 'Version_end_date__c' in cont else True
                 c['Power'] = cont['Requested_power_1__c']
-                c['Rate'] = cont['rate']
+                #c['Rate'] = cont['rate']
                 conts.append(c)
         return conts
 
