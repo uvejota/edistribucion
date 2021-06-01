@@ -13,14 +13,44 @@ sensor:
   - platform: edistribucion
     username: 000000000A # username (e.g., dni)
     password: mySecurePassword # password
+    scan_interval: inSeconds # optional (default = 600)
 ```
 
 4. Representa la información obtenida con una tarjeta en Home Assistant, mientras trabajamos en su desarrollo puedes usar esta como modelo :-)
 
 ``` yaml
-
 type: vertical-stack
+title: Consumo eléctrico
 cards:
+  - type: sensor
+    entity: sensor.eds_consumo_electrico
+    graph: line
+    name: Potencia instantánea
+    detail: 2
+  - type: grid
+    cards:
+      - type: entity
+        entity: sensor.eds_consumo_electrico
+        name: Hoy
+        attribute: Consumo aproximado (hoy)
+        unit: kWh
+        icon: 'mdi:counter'
+      - type: entity
+        entity: sensor.eds_consumo_electrico
+        name: Ayer
+        attribute: Consumo (ayer)
+        unit: kWh
+        icon: 'mdi:counter'
+      - type: entity
+        entity: sensor.energia_facturada
+        name: Facturado
+      - type: entity
+        entity: sensor.energia_facturada
+        name: Factura anterior
+        attribute: Consumo (últ. factura)
+        unit: kWh
+    columns: 2
+    square: false
   - type: grid
     cards:
       - type: button
@@ -34,35 +64,6 @@ cards:
         icon: 'hass:update'
     square: true
     columns: 6
-  - type: sensor
-    entity: sensor.eds_consumo_electrico
-    graph: line
-    name: Potencia instantánea
-  - type: grid
-    title: Resumen de consumos
-    cards:
-      - type: entity
-        entity: sensor.eds_consumo_electrico
-        attribute: Consumo total (hoy)
-        name: Hoy
-      - type: entity
-        entity: sensor.eds_consumo_electrico
-        name: Ayer
-        attribute: Consumo total (ayer)
-    columns: 2
-    square: false
-  - type: grid
-    cards:
-      - type: entity
-        entity: sensor.eds_consumo_electrico
-        attribute: Consumo total (7 días)
-        name: 7 días
-      - type: entity
-        entity: sensor.eds_consumo_electrico
-        attribute: Consumo total (30 días)
-        name: 30 días
-    columns: 2
-    square: false
 ```
 
 ## Créditos
