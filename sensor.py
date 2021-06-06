@@ -37,6 +37,8 @@ ATTR_MAXPOWER_1YEAR = "Máxima potencia registrada"
 ATTR_ICPSTATUS = "Estado ICP"
 ATTR_LOAD_NOW = "Carga actual"
 ATTR_POWER_LIMIT = "Potencia contratada"
+ATTR_ENERGY_DAILYAVG_CURRPERIOD = "Consumo diario medio (factura actual)"
+ATTR_ENERGY_DAILYAVG_LASTPERIOD = "Consumo diario medio (últ. factura)"
 
 # Slave sensors
 SLAVE_ENERGY_CONSUMPTION = "Energía consumida"
@@ -68,6 +70,8 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         ATTR_ENERGY_ALWAYS: None,
         ATTR_DAYS_CURRPERIOD: None,
         ATTR_DAYS_LASTPERIOD: None,
+        ATTR_ENERGY_DAILYAVG_CURRPERIOD: None,
+        ATTR_ENERGY_DAILYAVG_LASTPERIOD: None,
         ATTR_MAXPOWER_1YEAR: None,
         ATTR_ICPSTATUS: None,
         ATTR_LOAD_NOW: None,
@@ -141,7 +145,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     if config[CONF_EXPLODE_SENSORS]:
         # Create Slave Sensors, just to split three categories of data into different sensors
         entities.append(SlaveSensor(edis, SLAVE_ENERGY_CONSUMPTION, ATTR_ENERGY_ALWAYS, [ATTR_ENERGY_TODAY, ATTR_ENERGY_YESTERDAY], TYPE_SENSOR_ENERGY, should_poll=False))
-        entities.append(SlaveSensor(edis, SLAVE_ENERGY_BILLED, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_DAYS_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
+        entities.append(SlaveSensor(edis, SLAVE_ENERGY_BILLED, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_DAYS_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
         entities.append(SlaveSensor(edis, SLAVE_POWER_DEMAND, ATTR_POWER_DEMAND, [ATTR_POWER_LIMIT, ATTR_MAXPOWER_1YEAR, ATTR_LOAD_NOW], TYPE_SENSOR_POWER, should_poll=False))
     
     add_entities(entities)
@@ -175,6 +179,8 @@ class MasterSensor(Entity):
         self._attributes[ATTR_ENERGY_LASTPERIOD] = None
         self._attributes[ATTR_ENERGY_CURRPERIOD] = None
         self._attributes[ATTR_ENERGY_ALWAYS] = None
+        self._attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = None
+        self._attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = None
         self._attributes[ATTR_DAYS_LASTPERIOD] = None
         self._attributes[ATTR_DAYS_CURRPERIOD] = None
         self._attributes[ATTR_MAXPOWER_1YEAR] = None
@@ -257,7 +263,9 @@ class MasterSensor(Entity):
         for attr in attributes:
             self._attributes[attr] = attributes[attr]
 
-        self._total_energy = float(self._attributes[ATTR_ENERGY_ALWAYS])
+        if self._attributes[ATTR_ENERGY_ALWAYS] is not None:
+            self._total_energy = float(self._attributes[ATTR_ENERGY_ALWAYS])
+            
         # if new day, store consumption
         _LOGGER.debug("doing internal calculus")
         if self._do_run_daily_tasks or self._is_first_boot:
@@ -359,8 +367,8 @@ class SlaveSensor(Entity):
 
 def _do_fetch (edis, attributes, cups_index=0):
     QUERY_ENERGY_YESTERDAY = [ATTR_ENERGY_YESTERDAY]
-    QUERY_ENERGY_CURRPERIOD = [ATTR_ENERGY_CURRPERIOD, ATTR_DAYS_CURRPERIOD]
-    QUERY_ENERGY_LASTPERIOD = [ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD]
+    QUERY_ENERGY_CURRPERIOD = [ATTR_ENERGY_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_DAILYAVG_CURRPERIOD]
+    QUERY_ENERGY_LASTPERIOD = [ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD]
     QUERY_POWER_HISTOGRAM = [ATTR_MAXPOWER_1YEAR]
     QUERY_POWER_DEMAND = [ATTR_POWER_DEMAND, ATTR_ICPSTATUS, ATTR_LOAD_NOW, ATTR_POWER_LIMIT]
 
@@ -400,6 +408,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     currcycle_curve = edis.get_custom_curve(cont,date_currcycle, date_yesterday)
                     fetched_attributes[ATTR_ENERGY_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1))).days
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_CURRPERIOD]) / fetched_attributes[ATTR_DAYS_CURRPERIOD])
                 elif attr in QUERY_ENERGY_LASTPERIOD:
                     # ask for last cycle curve
                     if lastcycle == None:
@@ -408,6 +417,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     lastcycle_curve = edis.get_cycle_curve(cont, lastcycle['label'], lastcycle['value'])
                     fetched_attributes[ATTR_ENERGY_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_LASTPERIOD] = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') - datetime.strptime(lastcycle['label'].split(' - ')[0], '%d/%m/%Y')).days
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_LASTPERIOD]) / fetched_attributes[ATTR_DAYS_LASTPERIOD])
                 elif attr in QUERY_POWER_HISTOGRAM:
                     # ask for 1 year power demand histogram
                     date_currmonth = datetime.today().strftime("%m/%Y")
