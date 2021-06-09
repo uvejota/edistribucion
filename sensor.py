@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 # HA variables
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=10)
-FRIENDLY_NAME = 'EDS Consumo eléctrico'
+FRIENDLY_NAME = 'Suministro EDS'
 DOMAIN = 'edistribucion'
 
 # Custom configuration entries
@@ -25,25 +25,24 @@ SERVICE_RECONNECT_ICP = "reconnect_icp"
 
 # Attributes
 ATTR_CUPS_NAME = "CUPS"
-ATTR_POWER_DEMAND = "Potencia demandada"
-ATTR_ENERGY_TODAY = "Consumo aproximado (hoy)"
-ATTR_ENERGY_YESTERDAY = "Consumo (ayer)"
-ATTR_ENERGY_CURRPERIOD = "Consumo (factura actual)"
-ATTR_ENERGY_LASTPERIOD = "Consumo (últ. factura)"
+ATTR_POWER_DEMAND = "Potencia"
+ATTR_ENERGY_TODAY = "Consumo hoy (aprox.)"
+ATTR_ENERGY_YESTERDAY = "Consumo ayer"
+ATTR_ENERGY_CURRPERIOD = "Factura"
+ATTR_ENERGY_LASTPERIOD = "Factura (anterior)"
 ATTR_ENERGY_ALWAYS = "Consumo total"
-ATTR_DAYS_CURRPERIOD = "Días contabilizados (factura actual)"
-ATTR_DAYS_LASTPERIOD = "Días contabilizados (últ. factura)"
-ATTR_MAXPOWER_1YEAR = "Máxima potencia registrada"
+ATTR_DAYS_CURRPERIOD = "Días factura"
+ATTR_DAYS_LASTPERIOD = "Días factura (anterior)"
+ATTR_MAXPOWER_1YEAR = "Pico de potencia (últ. año)"
 ATTR_ICPSTATUS = "Estado ICP"
-ATTR_LOAD_NOW = "Carga actual"
+ATTR_LOAD_NOW = "Carga"
 ATTR_POWER_LIMIT = "Potencia contratada"
-ATTR_ENERGY_DAILYAVG_CURRPERIOD = "Consumo diario medio (factura actual)"
-ATTR_ENERGY_DAILYAVG_LASTPERIOD = "Consumo diario medio (últ. factura)"
+ATTR_ENERGY_DAILYAVG_CURRPERIOD = "Facturado diario"
+ATTR_ENERGY_DAILYAVG_LASTPERIOD = "Facturado diario (anterior)"
 
 # Slave sensors
-SLAVE_ENERGY_CONSUMPTION = "Energía consumida"
-SLAVE_ENERGY_BILLED = "Energía facturada"
-SLAVE_POWER_DEMAND = "Potencia demandada"
+SLAVE_ENERGY = "Energía EDS"
+SLAVE_POWER = "Potencia EDS"
 
 TYPE_SENSOR_ENERGY = 1
 TYPE_SENSOR_POWER = 2
@@ -144,9 +143,8 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
     if config[CONF_EXPLODE_SENSORS]:
         # Create Slave Sensors, just to split three categories of data into different sensors
-        entities.append(SlaveSensor(edis, SLAVE_ENERGY_CONSUMPTION, ATTR_ENERGY_ALWAYS, [ATTR_ENERGY_TODAY, ATTR_ENERGY_YESTERDAY], TYPE_SENSOR_ENERGY, should_poll=False))
-        entities.append(SlaveSensor(edis, SLAVE_ENERGY_BILLED, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_DAYS_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
-        entities.append(SlaveSensor(edis, SLAVE_POWER_DEMAND, ATTR_POWER_DEMAND, [ATTR_POWER_LIMIT, ATTR_MAXPOWER_1YEAR, ATTR_LOAD_NOW], TYPE_SENSOR_POWER, should_poll=False))
+        entities.append(SlaveSensor(edis, SLAVE_ENERGY, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_ALWAYS, ATTR_ENERGY_TODAY, ATTR_ENERGY_YESTERDAY, ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_DAYS_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
+        entities.append(SlaveSensor(edis, SLAVE_POWER, ATTR_POWER_DEMAND, [ATTR_POWER_LIMIT, ATTR_MAXPOWER_1YEAR, ATTR_LOAD_NOW], TYPE_SENSOR_POWER, should_poll=False))
     
     add_entities(entities)
 
@@ -173,6 +171,7 @@ class MasterSensor(Entity):
 
         # Initializing attributes to establish the order
         self._attributes[ATTR_CUPS_NAME] = None
+        '''
         self._attributes[ATTR_POWER_DEMAND] = None
         self._attributes[ATTR_ENERGY_TODAY] = None
         self._attributes[ATTR_ENERGY_YESTERDAY] = None
@@ -184,8 +183,9 @@ class MasterSensor(Entity):
         self._attributes[ATTR_DAYS_LASTPERIOD] = None
         self._attributes[ATTR_DAYS_CURRPERIOD] = None
         self._attributes[ATTR_MAXPOWER_1YEAR] = None
+        '''
         self._attributes[ATTR_ICPSTATUS] = None
-        self._attributes[ATTR_LOAD_NOW] = None
+        #self._attributes[ATTR_LOAD_NOW] = None
         self._attributes[ATTR_POWER_LIMIT] = None
         
         self._edis = edis
@@ -251,7 +251,9 @@ class MasterSensor(Entity):
             ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_MAXPOWER_1YEAR])
 
             for attr in attributes:
-                self._attributes[attr] = attributes[attr]
+                self.hass.data[DOMAIN][attr] = attributes[attr]
+                if attr in [ATTR_CUPS_NAME, ATTR_POWER_LIMIT, ATTR_ICPSTATUS]:
+                    self._attributes[attr] = attributes[attr]
 
         # Then retrieve real-time data (this is slow)
         _LOGGER.debug("fetching real-time data")
@@ -261,10 +263,12 @@ class MasterSensor(Entity):
             )
 
         for attr in attributes:
-            self._attributes[attr] = attributes[attr]
+            self.hass.data[DOMAIN][attr] = attributes[attr]
+            if attr in [ATTR_CUPS_NAME, ATTR_POWER_LIMIT, ATTR_ICPSTATUS]:
+                    self._attributes[attr] = attributes[attr]
 
-        if self._attributes[ATTR_ENERGY_ALWAYS] is not None:
-            self._total_energy = float(self._attributes[ATTR_ENERGY_ALWAYS])
+        if self.hass.data[DOMAIN][ATTR_ENERGY_ALWAYS] is not None:
+            self._total_energy = float(self.hass.data[DOMAIN][ATTR_ENERGY_ALWAYS])
             
         # if new day, store consumption
         _LOGGER.debug("doing internal calculus")
@@ -273,20 +277,18 @@ class MasterSensor(Entity):
             self._total_energy_yesterday = self._total_energy
         
         # do the maths and update it during the day
-        self._attributes[ATTR_ENERGY_TODAY] = str(int((self._total_energy) - (self._total_energy_yesterday)))
+        self.hass.data[DOMAIN][ATTR_ENERGY_TODAY] = str(int((self._total_energy) - (self._total_energy_yesterday)))
 
         # at this point, we should have update all attributes
         _LOGGER.debug("Attributes updated for MasterSensor: " + str(self._attributes))
 
         # Update the state of the Sensor
         try:
-            self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
+            self._state = float(self._attributes[ATTR_ICPSTATUS])
         except Exception as e:
-            _LOGGER.warn("Silent error while fetching ATTR_POWER_DEMAND")
+            _LOGGER.warn("Silent error while fetching ATTR_ICPSTATUS")
             
         _LOGGER.debug("State updated for MasterSensor: " + str(self._state))
-
-        self.hass.data[DOMAIN] = self._attributes
 
         # set flags down
         self._do_run_daily_tasks = False
