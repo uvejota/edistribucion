@@ -27,18 +27,18 @@ SERVICE_RECONNECT_ICP = "reconnect_icp"
 ATTR_CUPS_NAME = "CUPS"
 ATTR_POWER_DEMAND = "Potencia"
 ATTR_ENERGY_TODAY = "Consumo hoy (aprox.)"
-ATTR_ENERGY_YESTERDAY = "Consumo ayer"
-ATTR_ENERGY_CURRPERIOD = "Factura"
+ATTR_ENERGY_YESTERDAY = "Consumo ayer (fact.)"
+ATTR_ENERGY_CURRPERIOD = "Factura (actual)"
 ATTR_ENERGY_LASTPERIOD = "Factura (anterior)"
-ATTR_ENERGY_ALWAYS = "Consumo total"
-ATTR_DAYS_CURRPERIOD = "Días factura"
+ATTR_ENERGY_ALWAYS = "Contador"
+ATTR_DAYS_CURRPERIOD = "Días factura (actual)"
 ATTR_DAYS_LASTPERIOD = "Días factura (anterior)"
-ATTR_MAXPOWER_1YEAR = "Pico de potencia (últ. año)"
+ATTR_MAXPOWER_1YEAR = "Máxima potencia (últ. año)"
 ATTR_ICPSTATUS = "Estado ICP"
 ATTR_LOAD_NOW = "Carga"
 ATTR_POWER_LIMIT = "Potencia contratada"
-ATTR_ENERGY_DAILYAVG_CURRPERIOD = "Facturado diario"
-ATTR_ENERGY_DAILYAVG_LASTPERIOD = "Facturado diario (anterior)"
+ATTR_ENERGY_DAILYAVG_CURRPERIOD = "Consumo medio (fact. actual)"
+ATTR_ENERGY_DAILYAVG_LASTPERIOD = "Consumo medio (fact. anterior)"
 
 # Slave sensors
 SLAVE_ENERGY = "Energía EDS"
@@ -143,7 +143,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
     if config[CONF_EXPLODE_SENSORS]:
         # Create Slave Sensors, just to split three categories of data into different sensors
-        entities.append(SlaveSensor(edis, SLAVE_ENERGY, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_ALWAYS, ATTR_ENERGY_TODAY, ATTR_ENERGY_YESTERDAY, ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_DAYS_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
+        entities.append(SlaveSensor(edis, SLAVE_ENERGY, ATTR_ENERGY_CURRPERIOD, [ATTR_ENERGY_ALWAYS, ATTR_ENERGY_TODAY, ATTR_ENERGY_YESTERDAY, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_CURRPERIOD, ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD], TYPE_SENSOR_ENERGY, should_poll=False))
         entities.append(SlaveSensor(edis, SLAVE_POWER, ATTR_POWER_DEMAND, [ATTR_POWER_LIMIT, ATTR_MAXPOWER_1YEAR, ATTR_LOAD_NOW], TYPE_SENSOR_POWER, should_poll=False))
     
     add_entities(entities)
@@ -415,7 +415,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     currcycle_curve = edis.get_custom_curve(cont,date_currcycle, date_yesterday)
                     fetched_attributes[ATTR_ENERGY_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1))).days
-                    fetched_attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_CURRPERIOD].replace(",",".")) / fetched_attributes[ATTR_DAYS_CURRPERIOD])
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = str(round(float(fetched_attributes[ATTR_ENERGY_CURRPERIOD].replace(",",".")),2) / fetched_attributes[ATTR_DAYS_CURRPERIOD]).replace(".",",")
                 elif attr in QUERY_ENERGY_LASTPERIOD:
                     # ask for last cycle curve
                     if lastcycle == None:
@@ -424,7 +424,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     lastcycle_curve = edis.get_cycle_curve(cont, lastcycle['label'], lastcycle['value'])
                     fetched_attributes[ATTR_ENERGY_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_LASTPERIOD] = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') - datetime.strptime(lastcycle['label'].split(' - ')[0], '%d/%m/%Y')).days
-                    fetched_attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_LASTPERIOD].replace(",",".")) / fetched_attributes[ATTR_DAYS_LASTPERIOD])
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = str(round(float(fetched_attributes[ATTR_ENERGY_LASTPERIOD].replace(",",".")),2) / fetched_attributes[ATTR_DAYS_LASTPERIOD]).replace(".",",")
                 elif attr in QUERY_POWER_HISTOGRAM:
                     # ask for 1 year power demand histogram
                     date_currmonth = datetime.today().strftime("%m/%Y")

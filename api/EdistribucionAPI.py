@@ -114,7 +114,7 @@ class Edistribucion():
             raise UrlError(r.status_code, msg, r)
         return r
     
-    def __command(self, command, post=None, dashboard=None, accept='*/*', content_type=None, recursive=False):
+    def __command(self, command, post=None, dashboard=None, accept='*/*', content_type=None, recursive=True):
         if (not dashboard):
             dashboard = self.__dashboard
         if (self.__command_index):
@@ -190,7 +190,7 @@ class Edistribucion():
             return self.__force_login()
         return True
     
-    def __force_login(self, recursive=False):
+    def __force_login(self, recursive=True):
         logging.warning('Forcing login')
         r = self.__get_url('https://zonaprivada.edistribucion.com/areaprivada/s/login?ec=302&startURL=%2Fareaprivada%2Fs%2F')
         ix = r.text.find('auraConfig')
