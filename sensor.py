@@ -248,7 +248,7 @@ class MasterSensor(Entity):
 
             attributes = _do_fetch (self._edis, 
             [ATTR_CUPS_NAME, ATTR_ENERGY_YESTERDAY, ATTR_ENERGY_CURRPERIOD, ATTR_DAYS_CURRPERIOD, 
-            ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_MAXPOWER_1YEAR])
+            ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_ENERGY_DAILYAVG_CURRPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD, ATTR_MAXPOWER_1YEAR])
 
             for attr in attributes:
                 self._attributes[attr] = attributes[attr]
@@ -408,7 +408,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     currcycle_curve = edis.get_custom_curve(cont,date_currcycle, date_yesterday)
                     fetched_attributes[ATTR_ENERGY_CURRPERIOD] = str(currcycle_curve['data']['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_CURRPERIOD] = (datetime.today() - (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') + timedelta(days=1))).days
-                    fetched_attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_CURRPERIOD]) / fetched_attributes[ATTR_DAYS_CURRPERIOD])
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_CURRPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_CURRPERIOD].replace(",",".")) / fetched_attributes[ATTR_DAYS_CURRPERIOD])
                 elif attr in QUERY_ENERGY_LASTPERIOD:
                     # ask for last cycle curve
                     if lastcycle == None:
@@ -417,7 +417,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     lastcycle_curve = edis.get_cycle_curve(cont, lastcycle['label'], lastcycle['value'])
                     fetched_attributes[ATTR_ENERGY_LASTPERIOD] = str(lastcycle_curve['totalValue']).replace(".","")
                     fetched_attributes[ATTR_DAYS_LASTPERIOD] = (datetime.strptime(lastcycle['label'].split(' - ')[1], '%d/%m/%Y') - datetime.strptime(lastcycle['label'].split(' - ')[0], '%d/%m/%Y')).days
-                    fetched_attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_LASTPERIOD]) / fetched_attributes[ATTR_DAYS_LASTPERIOD])
+                    fetched_attributes[ATTR_ENERGY_DAILYAVG_LASTPERIOD] = str(float(fetched_attributes[ATTR_ENERGY_LASTPERIOD].replace(",",".")) / fetched_attributes[ATTR_DAYS_LASTPERIOD])
                 elif attr in QUERY_POWER_HISTOGRAM:
                     # ask for 1 year power demand histogram
                     date_currmonth = datetime.today().strftime("%m/%Y")
@@ -432,6 +432,7 @@ def _do_fetch (edis, attributes, cups_index=0):
                     fetched_attributes[ATTR_ENERGY_ALWAYS] = str(meter['data']['totalizador']).replace(".","")
                     fetched_attributes[ATTR_LOAD_NOW] = str(meter['data']['percent']).replace(".","")
                     fetched_attributes[ATTR_POWER_LIMIT] = str(meter['data']['potenciaContratada']).replace(".",",")
-            except:
+            except Exception as e:
+                _LOGGER.info(e)
                 pass
     return fetched_attributes
