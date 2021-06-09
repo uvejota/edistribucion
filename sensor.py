@@ -169,7 +169,7 @@ class MasterSensor(Entity):
         self._do_run_6am_tasks = False
 
         self._total_energy = 0
-        self._total_energy_yesterday = 0
+        self._total_energy_yesterday = None
 
         # Initializing attributes to establish the order
         self._attributes[ATTR_CUPS_NAME] = None
@@ -268,9 +268,10 @@ class MasterSensor(Entity):
             
         # if new day, store consumption
         _LOGGER.debug("doing internal calculus")
-        if self._do_run_daily_tasks or self._is_first_boot:
-            # if a new day has started, store last total consumption as the base for the daily calculus
+
+        if self._total_energy_yesterday is None:
             self._total_energy_yesterday = self._total_energy
+        
         # do the maths and update it during the day
         self._attributes[ATTR_ENERGY_TODAY] = str(int((self._total_energy) - (self._total_energy_yesterday)))
 
@@ -278,7 +279,11 @@ class MasterSensor(Entity):
         _LOGGER.debug("Attributes updated for MasterSensor: " + str(self._attributes))
 
         # Update the state of the Sensor
-        self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
+        try:
+            self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
+        except Exception as e:
+            _LOGGER.warn("Silent error while fetching ATTR_POWER_DEMAND")
+            
         _LOGGER.debug("State updated for MasterSensor: " + str(self._state))
 
         self.hass.data[DOMAIN] = self._attributes
