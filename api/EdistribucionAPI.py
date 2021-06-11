@@ -17,8 +17,7 @@ from dateutil.tz import tzutc
 
 UTC = tzutc()
 
-logging.basicConfig(format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
-logging.getLogger().setLevel(logging.DEBUG)
+_LOGGER = logging.getLogger(__name__)
 
 class EdisError(Exception):
     def __init__(self, message):
@@ -59,7 +58,7 @@ class Edistribucion():
     __access_date = datetime.now()
     __do_save_session = False
     
-    def __init__(self, user, password, do_save_session=False, debug_level=logging.INFO):
+    def __init__(self, user, password, do_save_session=False, debug_level=_LOGGER.debug):
         self.__session = requests.Session()
         self.__credentials['user'] = user
         self.__credentials['password'] = password
@@ -69,7 +68,7 @@ class Edistribucion():
                 with open(Edistribucion.SESSION_FILE, 'rb') as f:
                     self.__session.cookies.update(pickle.load(f))
             except FileNotFoundError:
-                logging.warning('Session file not found')
+                _LOGGER.warning('Session file not found')
             try:
                 with open(Edistribucion.ACCESS_FILE, 'rb') as f:
                     d = json.load(f)
@@ -78,8 +77,8 @@ class Edistribucion():
                     self.__context = d['context']
                     self.__access_date = datetime.fromisoformat(d['date'])
             except FileNotFoundError:
-                logging.warning('Access file not found')
-        logging.getLogger().setLevel(debug_level)
+                _LOGGER.warning('Access file not found')
+        #logging.getLogger().setLevel(debug_level)
         
     def __get_url(self, url,get=None,post=None,json=None,cookies=None,headers=None):
         __headers = {
@@ -91,17 +90,17 @@ class Edistribucion():
             r = self.__session.get(url, params=get, headers=__headers, cookies=cookies)
         else:
             r = self.__session.post(url, data=post, json=json, params=get, headers=__headers, cookies=cookies)
-        logging.info('Sending %s request to %s', r.request.method, r.url)
-        logging.debug('Parameters: %s', r.request.url)
-        logging.debug('Headers: %s', r.request.headers)
-        logging.info('Response with code: %d', r.status_code)
-        logging.debug('Headers: %s', r.headers)
-        logging.debug('History: %s', r.history)
+        _LOGGER.debug('Sending %s request to %s', r.request.method, r.url)
+        _LOGGER.debug('Parameters: %s', r.request.url)
+        _LOGGER.debug('Headers: %s', r.request.headers)
+        _LOGGER.debug('Response with code: %d', r.status_code)
+        _LOGGER.debug('Headers: %s', r.headers)
+        _LOGGER.debug('History: %s', r.history)
         if r.status_code >= 400:
             try:
                 e = r.json()
                 msg = 'Error {}'.format(r.status_code)
-                logging.debug('Response error in JSON format')
+                _LOGGER.debug('Response error in JSON format')
                 if ('error' in e):
                     msg += ':'
                     if ('errorCode' in e['error']):
@@ -109,7 +108,7 @@ class Edistribucion():
                     if ('description' in e['error']):
                         msg += ' '+e['error']['description']
             except ValueError:
-                logging.debug('Response error is not JSON format')
+                _LOGGER.debug('Response error is not JSON format')
                 msg = "Error: status code {}".format(r.status_code)
             raise UrlError(r.status_code, msg, r)
         return r
@@ -120,17 +119,17 @@ class Edistribucion():
         if (self.__command_index):
             command = 'r='+self.__command_index+'&'
             self.__command_index += 1
-        logging.info('Preparing command: %s', command)
+        _LOGGER.debug('Preparing command: %s', command)
         if (post):
             post['aura.context'] = self.__context
             post['aura.pageURI'] = '/areaprivada/s/wp-online-access'
             post['aura.token'] = self.__token
-            logging.debug('POST data: %s', post)
-        logging.debug('Dashboard: %s', dashboard)
+            _LOGGER.debug('POST data: %s', post)
+        _LOGGER.debug('Dashboard: %s', dashboard)
         if (accept):
-            logging.debug('Accept: %s', accept)
+            _LOGGER.debug('Accept: %s', accept)
         if (content_type):
-            logging.debug('Content-tpye: %s', content_type)
+            _LOGGER.debug('Content-tpye: %s', content_type)
             '''
         try:
             if (not self.__check_tokens()):
@@ -146,30 +145,30 @@ class Edistribucion():
         r = self.__get_url(dashboard+command, post=post, headers=headers)
         if ('window.location.href' in r.text or 'clientOutOfSync' in r.text):
             if (not recursive):
-                logging.info('Redirection received. Fetching credentials again.')
+                _LOGGER.debug('Redirection received. Fetching credentials again.')
                 
                 self.__session = requests.Session()
                 self.__force_login()
                 self.__command(command=command, post=post, dashboard=dashboard, accept=accept, content_type=content_type, recursive=True)
             else:
-                logging.warning('Redirection received twice. Aborting command.')
+                _LOGGER.warning('Redirection received twice. Aborting command.')
         if ('json' in r.headers['Content-Type']):
             jr = r.json()
             if (jr['actions'][0]['state'] != 'SUCCESS'):
                 if (not recursive):
-                    logging.info('Error received. Fetching credentials again.')
+                    _LOGGER.debug('Error received. Fetching credentials again.')
                     
                     self.__session = requests.Session()
                     self.__force_login()
                     self.__command(command=command, post=post, dashboard=dashboard, accept=accept, content_type=content_type, recursive=True)
                 else:
-                    logging.warning('Error received twice. Aborting command.')
+                    _LOGGER.warning('Error received twice. Aborting command.')
                     raise EdisError('Error processing command: {}'.format(jr['actions'][0]['error'][0]['message']))
             return jr['actions'][0]['returnValue']
         return r
     
     def __check_tokens(self):
-        logging.debug('Checking tokens')
+        _LOGGER.debug('Checking tokens')
         return self.__token != 'undefined' and self.__access_date+timedelta(minutes=10) > datetime.now()
         
     def __save_access(self):
@@ -181,17 +180,17 @@ class Edistribucion():
         if self.__do_save_session:
             with open(Edistribucion.ACCESS_FILE, 'w') as f:
                 json.dump(t, f, default=serialize_date)
-            logging.info('Saving access to file')
+            _LOGGER.debug('Saving access to file')
         
     def login(self):
-        logging.info('Loging')
+        _LOGGER.debug('Loging')
         if (not self.__check_tokens()):
             self.__session = requests.Session()
             return self.__force_login()
         return True
     
     def __force_login(self, recursive=True):
-        logging.warning('Forcing login')
+        _LOGGER.warning('Forcing login')
         r = self.__get_url('https://zonaprivada.edistribucion.com/areaprivada/s/login?ec=302&startURL=%2Fareaprivada%2Fs%2F')
         ix = r.text.find('auraConfig')
         if (ix == -1):
@@ -199,7 +198,7 @@ class Edistribucion():
         
         soup = BeautifulSoup(r.text, 'html.parser')
         scripts = soup.find_all('script')
-        logging.info('Loading scripts')
+        _LOGGER.debug('Loading scripts')
         for s in scripts:
             src = s.get('src')
             if (not src):
@@ -211,7 +210,7 @@ class Edistribucion():
                 unq = unquote(src)
                 self.__context = unq[unq.find('{'):unq.rindex('}')+1]
                 self.__appInfo = json.loads(self.__context)
-        logging.info('Performing login routine')
+        _LOGGER.debug('Performing login routine')
         data = {
                 'message':'{"actions":[{"id":"91;a","descriptor":"apex://LightningLoginFormController/ACTION$login","callingDescriptor":"markup://c:WP_LoginForm","params":{"username":"'+self.__credentials['user']+'","password":"'+self.__credentials['password']+'","startUrl":"/areaprivada/s/"}}]}',
                 'aura.context':self.__context,
@@ -228,9 +227,9 @@ class Edistribucion():
         jr = r.json()
         if ('events' not in jr):
             raise EdisError('Wrong login response. Cannot continue')
-        logging.info('Accessing to frontdoor')
+        _LOGGER.debug('Accessing to frontdoor')
         r = self.__get_url(jr['events'][0]['attributes']['values']['url'])
-        logging.info('Accessing to landing page')
+        _LOGGER.debug('Accessing to landing page')
         r = self.__get_url('https://zonaprivada.edistribucion.com/areaprivada/s/')
         ix = r.text.find('auraConfig')
         if (ix == -1):
@@ -241,18 +240,18 @@ class Edistribucion():
         if ('token' not in jr):
             raise EdisError('token not found. Cannot continue')
         self.__token = jr['token']
-        logging.info('Token received!')
-        logging.debug(self.__token)
-        logging.info('Retreiving account info')
+        _LOGGER.debug('Token received!')
+        _LOGGER.debug(self.__token)
+        _LOGGER.debug('Retreiving account info')
         r = self.get_login_info()
         self.__identities['account_id'] = r['visibility']['Id']
         self.__identities['name'] = r['Name']
-        logging.info('Received name: %s (%s)',r['Name'],r['visibility']['Visible_Account__r']['Identity_number__c'])
-        logging.debug('Account_id: %s', self.__identities['account_id'])
+        _LOGGER.debug('Received name: %s (%s)',r['Name'],r['visibility']['Visible_Account__r']['Identity_number__c'])
+        _LOGGER.debug('Account_id: %s', self.__identities['account_id'])
         if self.__do_save_session:
             with open(Edistribucion.SESSION_FILE, 'wb') as f:
                 pickle.dump(self.__session.cookies, f)
-            logging.debug('Saving session')
+            _LOGGER.debug('Saving session')
         self.__save_access()
             
     def get_login_info(self):

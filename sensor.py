@@ -280,21 +280,23 @@ class MasterSensor(Entity):
             if attributes[attr] is not None:
                 self._attributes[attr] = attributes[attr]
 
-        self._total_energy = float(self._attributes[ATTR_ENERGY_ALWAYS])
-        # if new day, store consumption
-        _LOGGER.debug("doing internal calculus")
-        if self._do_run_daily_tasks or self._is_first_boot:
-            # if a new day has started, store last total consumption as the base for the daily calculus
-            self._total_energy_yesterday = self._total_energy
-        # do the maths and update it during the day
-        self._attributes[ATTR_ENERGY_TODAY] = str(int((self._total_energy) - (self._total_energy_yesterday)))
+        if self._attributes[ATTR_ENERGY_ALWAYS] is not None:
+            self._total_energy = float(self._attributes[ATTR_ENERGY_ALWAYS])
+            # if new day, store consumption
+            _LOGGER.debug("doing internal calculus")
+            if self._do_run_daily_tasks or self._is_first_boot:
+                # if a new day has started, store last total consumption as the base for the daily calculus
+                self._total_energy_yesterday = self._total_energy
+            # do the maths and update it during the day
+            self._attributes[ATTR_ENERGY_TODAY] = str(int((self._total_energy) - (self._total_energy_yesterday)))
 
         # at this point, we should have update all attributes
         _LOGGER.debug("Attributes updated for MasterSensor: " + str(self._attributes))
 
         # Update the state of the Sensor
-        self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
-        _LOGGER.debug("State updated for MasterSensor: " + str(self._state))
+        if self._attributes[ATTR_POWER_DEMAND] is not None:
+            self._state = float(self._attributes[ATTR_POWER_DEMAND].replace(",","."))
+            _LOGGER.debug("State updated for MasterSensor: " + str(self._state))
 
         self.hass.data[DOMAIN] = self._attributes
 
