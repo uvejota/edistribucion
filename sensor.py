@@ -19,6 +19,7 @@ DOMAIN = 'edistribucion'
 CONF_SAVE_SESSION = 'save_session'
 CONF_EXPLODE_SENSORS = 'explode_sensors'
 CONF_UPDATE_AT_START = 'update_at_start'
+CONF_CUPS = 'cups'
 
 # Services
 SERVICE_RECONNECT_ICP = "reconnect_icp"
@@ -52,6 +53,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
+        vol.Optional(CONF_CUPS): cv.string,
         vol.Optional(CONF_SAVE_SESSION, default=True): vol.Boolean,
         vol.Optional(CONF_EXPLODE_SENSORS, default=True): vol.Boolean,
         vol.Optional(CONF_UPDATE_AT_START, default=True): vol.Boolean
@@ -135,10 +137,13 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         )
 
     # Declare Edistribucion API
-    edis = Edistribucion(config[CONF_USERNAME],config[CONF_PASSWORD],config[CONF_SAVE_SESSION])
+    edis = Edistribucion(config[CONF_USERNAME],config[CONF_PASSWORD],do_save_session=config[CONF_SAVE_SESSION])
 
     # Create the Master Sensor, which is the only one that polls data from edistribucion
-    entities.append(MasterSensor(edis, force_update=config[CONF_UPDATE_AT_START]))
+    target_cups = None
+    if config[CONF_CUPS]:
+        target_cups = config[CONF_CUPS]
+    entities.append(MasterSensor(edis, force_update=config[CONF_UPDATE_AT_START], desired_cups=target_cups))
 
     _LOGGER.info("My config is... {}".format(str(config)))
 
@@ -158,10 +163,11 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 class MasterSensor(Entity):
     """Representation of a Sensor."""
 
-    def __init__(self, edis, force_update=True):
+    def __init__(self, edis, force_update=True, desired_cups=None):
         """Initialize the sensor."""
         self._state = None
         self._attributes = {}
+        self._desired_cups = desired_cups
         self._forceupdate = force_update
 
         self._is_first_boot = True
@@ -233,8 +239,17 @@ class MasterSensor(Entity):
         ### Untested... impossible under the current setup
         _LOGGER.debug("ICP reconnect service called")
         # Get CUPS list, at the moment we just explore the first element [0] in the table (valid if you only have a single contract)
-        r = self._edis.get_list_cups()
-        cups = r[0]['CUPS_Id']
+        cups = None
+        edis.login()
+        r = edis.get_list_cups()
+        cups_found = False
+        if self._desired_cups is not None:
+            for c in r:
+                if c['CUPS'] == self._desired_cups:
+                    cups = c['CUPS_Id']
+                    cups_found = True
+        if not cups_found:
+            cups = r[0]['CUPS_Id']
         # Get response
         response = self._edis.reconnect_ICP(cups)
         _LOGGER.debug(response)
@@ -248,7 +263,7 @@ class MasterSensor(Entity):
 
             attributes = _do_fetch (self._edis, 
             [ATTR_CUPS_NAME, ATTR_ENERGY_YESTERDAY, ATTR_ENERGY_CURRPERIOD, ATTR_DAYS_CURRPERIOD, 
-            ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_MAXPOWER_1YEAR])
+            ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_MAXPOWER_1YEAR], desired_cups=self._desired_cups)
 
             for attr in attributes:
                 self._attributes[attr] = attributes[attr]
@@ -257,7 +272,8 @@ class MasterSensor(Entity):
         _LOGGER.debug("fetching real-time data")
         attributes = _do_fetch (self._edis, 
             [ATTR_ICPSTATUS, ATTR_ENERGY_ALWAYS, ATTR_LOAD_NOW, 
-            ATTR_POWER_LIMIT]
+            ATTR_POWER_LIMIT],
+            desired_cups=self._desired_cups
             )
 
         for attr in attributes:
@@ -364,7 +380,7 @@ class SlaveSensor(Entity):
             except:
                 self._attributes[attribute] = None
 
-def _do_fetch (edis, attributes, cups_index=0):
+def _do_fetch (edis, attributes, desired_cups=None):
     QUERY_ENERGY_YESTERDAY = [ATTR_ENERGY_YESTERDAY]
     QUERY_ENERGY_CURRPERIOD = [ATTR_ENERGY_CURRPERIOD, ATTR_DAYS_CURRPERIOD, ATTR_ENERGY_DAILYAVG_CURRPERIOD]
     QUERY_ENERGY_LASTPERIOD = [ATTR_ENERGY_LASTPERIOD, ATTR_DAYS_LASTPERIOD, ATTR_ENERGY_DAILYAVG_LASTPERIOD]
@@ -374,17 +390,26 @@ def _do_fetch (edis, attributes, cups_index=0):
     cups = None
     cont = None
     cups_name = None
+    lastcycle = None
 
     fetched_attributes = {}
 
     # fetch always CUPS/CONT values
     edis.login()
     r = edis.get_list_cups()
-    cups = r[cups_index]['CUPS_Id']
-    cont = r[cups_index]['Id']
-    lastcycle = None
-    
-    fetched_attributes[ATTR_CUPS_NAME] = r[cups_index]['CUPS']
+    cups_found = False
+    if desired_cups is not None:
+        for c in r:
+            if c['CUPS'] == desired_cups:
+                cups = c['CUPS_Id']
+                cont = c['Id']
+                cups_found = True
+    if not cups_found:
+        _LOGGER.warn("Taking first CUPS by default (check your configuration to specify a valid CUPS)")
+        cups = r[0]['CUPS_Id']
+        cont = r[0]['Id']
+        fetched_attributes[ATTR_CUPS_NAME] = r[0]['CUPS']
+
     for attr in attributes:
         fetched_attributes[attr] = None
 
