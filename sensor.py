@@ -147,19 +147,18 @@ class EdsSensor(Entity):
             self.__helper.set_cups(self.__cups)
 
         self.__helper.update()
-        self._attributes["Potencia demandada (kW)"] = self.__helper.Meter.get('Power', None)
         self._attributes["CUPS"] = self.__helper.Supply.get('CUPS', None)
-        self._attributes["Contador (kWh)"] = self.__helper.Meter.get('Power', None)
+        self._attributes["Contador (kWh)"] = self.__helper.Meter.get('EnergyMeter', None)
+        self._attributes["Estado ICP"] = self.__helper.Meter.get('ICP', None)
+        self._attributes["Carga actual (%)"] = self.__helper.Meter.get('Load', None)
+        self._attributes["Potencia contratada (kW)"] = self.__helper.Supply.get('PowerLimit', None)
+        self._attributes["Potencia demandada (kW)"] = self.__helper.Meter.get('Power', None)
         self._attributes["Hoy (kWh)"] = f"{self.__helper.Today.get('Energy', None)} (P1: {self.__helper.Today.get('P1', None)} | P2: {self.__helper.Today.get('P2', None)} | P3: {self.__helper.Today.get('P3', None)})"
         self._attributes["Ayer (kWh)"] = f"{self.__helper.Yesterday.get('Energy', None)} (P1: {self.__helper.Yesterday.get('P1', None)} | P2: {self.__helper.Yesterday.get('P2', None)} | P3: {self.__helper.Yesterday.get('P3', None)})"
         self._attributes["Ciclo anterior (kWh)"] = f"{self.__helper.Cycles[1].get('EnergySum', None) if len(self.__helper.Cycles) > 1 else None} en {self.__helper.Cycles[1].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None} días ({self.__helper.Cycles[1].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None} kWh/día)"
         self._attributes["Ciclo actual (kWh)"] = f"{self.__helper.Cycles[0].get('EnergySum', None) if len(self.__helper.Cycles) > 1 else None} en {self.__helper.Cycles[0].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None} días ({self.__helper.Cycles[0].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None} kWh/día)"
-        self._attributes["Contador (kWh)"] = self.__helper.Meter.get('EnergyMeter', None)
         self._attributes["Potencia máxima (kW)"] = f"Potencia máxima (kW): {self.__helper.Maximeter.get('Max', '-')} el {self.__helper.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime('%d/%m/%Y')}"
         self._attributes["Potencia media (kW)"] = self.__helper.Maximeter.get('Average', None)
         self._attributes["Potencia percentil (99 | 95 | 90) (kW)"] = f"{self.__helper.Maximeter.get('Percentile99', None)} | {self.__helper.Maximeter.get('Percentile95', None)} | {self.__helper.Maximeter.get('Percentile90', None)} "
-        self._attributes["Estado ICP"] = self.__helper.Meter.get('ICP', None)
-        self._attributes["Carga actual (%)"] = self.__helper.Meter.get('Load', None)
-        self._attributes["Potencia contratada (kW)"] = self.__helper.Supply.get('PowerLimit', None)
 
         self._state = self.__helper.Meter.get('Power', None)
