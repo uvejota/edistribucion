@@ -18,6 +18,4 @@ except:
 eHelper = EdsHelper(USER,PASSWORD)
 eHelper.update()
 
-print(str(eHelper.Cycles))
-print(str(eHelper.Maximeter))
-print(str(eHelper.Meter))
+print(eHelper)
