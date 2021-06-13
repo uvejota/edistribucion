@@ -28,8 +28,6 @@ class EdsHelper():
         self.__password = password
         self.__short_interval = short_interval
         self.__long_interval = long_interval
-        if cups is not None:
-            self.set_cups (cups)
 
     # To load CUPS into the helper
     def set_cups (self, candidate=None):
