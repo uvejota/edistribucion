@@ -1,5 +1,5 @@
 import logging
-from api.EdsConnector import EdsConnector
+from .EdsConnector import EdsConnector
 from datetime import datetime, timedelta
 #import calendar
 import numpy as np
@@ -22,7 +22,7 @@ class EdsHelper():
     Meter = {}
     Maximeter = {}
 
-    def __init__(self, user, password, cups=None, short_interval=10, long_interval=60):
+    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=10), long_interval=timedelta(minutes=60)):
         self.__eds = EdsConnector(user, password)
         self.__username = user
         self.__password = password
@@ -60,7 +60,7 @@ class EdsHelper():
         self.__last_update = datetime.now()
 
     def __fetch_all (self):
-        if self.__last_update is None or (datetime.now() - self.__last_update).minutes > self.__long_interval:
+        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__long_interval:
             # Fetch cycles data
             try:
                 cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
@@ -95,7 +95,7 @@ class EdsHelper():
                 _LOGGER.warning(e)
             
         # Fetch meter data
-        if self.__last_update is None or (datetime.now() - self.__last_update).minutes > self.__short_interval:
+        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__short_interval:
             try:
                 meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
