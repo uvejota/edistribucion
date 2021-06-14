@@ -15,6 +15,8 @@ class EdsHelper():
     __short_interval = None
     __long_interval = None
 
+    __meter_yesterday = None
+
     Supply = {}
     Today = {}
     Yesterday = {}
@@ -60,7 +62,9 @@ class EdsHelper():
         self.__last_update = datetime.now()
 
     def __fetch_all (self):
+        should_reset_day = False
         if self.__last_update is None or (datetime.now() - self.__last_update) > self.__long_interval:
+            # or (datetime.now() - self.__last_update) > self.__long_interval:
             # Fetch cycles data
             try:
                 cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
@@ -68,7 +72,8 @@ class EdsHelper():
                 d1 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 d3 = datetime.today()
-                if len(self.Cycles) < 2 or self.Cycles[0]['DateStart'] != d2:
+                should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else True
+                if len(self.Cycles) < 2 or should_reset_day:
                     _LOGGER.info("Fetching complete history")
                     current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
                     last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], cycles['lstCycles'][0]['label'], cycles['lstCycles'][0]['value'])
@@ -100,6 +105,10 @@ class EdsHelper():
                 meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
                     self.Meter = self.__rawmeter2data (meter)
+                    if should_reset_day:
+                        self.__meter_yesterday = self.Meter.get('EnergyMeter', None)
+                    if self.__meter_yesterday is not None:
+                        self.Meter["EnergyToday"] = self.__meter_yesterday - self.Meter['EnergyMeter']
             except Exception as e:
                 _LOGGER.warning(e)
 
@@ -175,12 +184,12 @@ class EdsHelper():
             Day = None
         return Day
 
- 
     def __str__ (self):
         value = \
             f"""
             \r* CUPS: {self.Supply.get('CUPS', '-')}
             \r* Contador (kWh): {self.Meter.get('EnergyMeter', '-')}
+            \r* Contador (kWh): {self.Meter.get('EnergyToday', '-')}
             \r* Estado ICP: {self.Meter.get('ICP', '-')}
             \r* Carga actual (%): {self.Meter.get('Load', '-')}
             \r* Potencia contratada (kW): {self.Supply.get('PowerLimit', '-')}
