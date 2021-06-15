@@ -49,7 +49,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     entities = []
 
     # Declare eds helper
-    helper = EdsHelper(config[CONF_USERNAME], config[CONF_PASSWORD], short_interval=SCAN_INTERVAL/2, long_interval=6*SCAN_INTERVAL)
+    helper = EdsHelper(config[CONF_USERNAME], config[CONF_PASSWORD])
     cups = None
     if config[CONF_CUPS]:
         cups = config[CONF_CUPS]
@@ -113,33 +113,33 @@ class EdsSensor(Entity):
 
         for attr in self.__attrs:
             if 'cups' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = self.__helper.Supply.get('CUPS', None)
+                self._attributes[SENSOR_TYPES[attr][0]] = self.__helper.Supply.get('CUPS', '-')
             elif 'cont' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('EnergyMeter', None)} kWh"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('EnergyMeter', '-')} kWh"
             elif 'icp_status' == attr:
                 self._attributes[SENSOR_TYPES[attr][0]] = self.__helper.Meter.get('ICP', 'Desconocido')
             elif 'power_load' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('Load', None)} %"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('Load', '-')} %"
             elif 'power_limit' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Supply.get('PowerLimit', None)} kW"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Supply.get('PowerLimit', '-')} kW"
             elif 'power' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('Power', None)} kW"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('Power', '-')} kW"
             elif 'energy_today' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('EnergyToday', None)} kWh"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Meter.get('EnergyToday', '-')} kWh"
             elif 'energy_yesterday' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Yesterday.get('Energy', None)} kWh"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Yesterday.get('Energy', '-')} kWh"
             elif 'energy_yesterday_detail' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"Pico: {self.__helper.Yesterday.get('P1', None)}, Llano: {self.__helper.Yesterday.get('P2', None)}, Valle: {self.__helper.Yesterday.get('P3', None)}"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"Pico: {self.__helper.Yesterday.get('P1', '-')}, Llano: {self.__helper.Yesterday.get('P2', '-')}, Valle: {self.__helper.Yesterday.get('P3', '-')}"
             elif 'cycle_current' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Cycles[0].get('EnergySum', None) if len(self.__helper.Cycles) > 1 else None} kWh en {self.__helper.Cycles[0].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None} días ({self.__helper.Cycles[0].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None} kWh/día)"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Cycles[0].get('EnergySum', '-') if len(self.__helper.Cycles) > 1 else '-'} kWh en {self.__helper.Cycles[0].get('DateDelta', '-') if len(self.__helper.Cycles) > 1 else '-'} días ({self.__helper.Cycles[0].get('EnergyDaily', '-') if len(self.__helper.Cycles) > 1 else '-'} kWh/día)"
             elif 'cycle_last' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Cycles[1].get('EnergySum', None) if len(self.__helper.Cycles) > 1 else None} kWh en {self.__helper.Cycles[1].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None} días ({self.__helper.Cycles[1].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None} kWh/día)"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Cycles[1].get('EnergySum', '-') if len(self.__helper.Cycles) > 1 else '-'} kWh en {self.__helper.Cycles[1].get('DateDelta', '-') if len(self.__helper.Cycles) > 1 else '-'} días ({self.__helper.Cycles[1].get('EnergyDaily', '-') if len(self.__helper.Cycles) > 1 else '-'} kWh/día)"
             elif 'power_peak' == attr:
                 self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Maximeter.get('Max', '-')} kW el {self.__helper.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime('%d/%m/%Y')}"
             elif 'power_peak_mean' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Maximeter.get('Average', None)} kW"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Maximeter.get('Average', '-')} kW"
             elif 'power_peak_tile90' == attr:
-                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Maximeter.get('Percentile90', None)} kW"
+                self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__helper.Maximeter.get('Percentile90', '-')} kW"
             else:
                 _LOGGER.warning ("unrecognised attribute with label" + str(attr))
 

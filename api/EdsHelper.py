@@ -24,12 +24,13 @@ class EdsHelper():
     Meter = {}
     Maximeter = {}
 
-    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=10), long_interval=timedelta(minutes=60)):
+    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=3), long_interval=timedelta(minutes=60)):
         self.__eds = EdsConnector(user, password)
         self.__username = user
         self.__password = password
         self.__short_interval = short_interval
         self.__long_interval = long_interval
+        self.__last_update = None
 
     # To load CUPS into the helper
     def set_cups (self, candidate=None):
@@ -63,7 +64,7 @@ class EdsHelper():
 
     def __fetch_all (self):
         should_reset_day = False
-        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__long_interval:
+        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__long_interval or True:
             # or (datetime.now() - self.__last_update) > self.__long_interval:
             # Fetch cycles data
             try:
@@ -72,7 +73,7 @@ class EdsHelper():
                 d1 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 d3 = datetime.today()
-                should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else True
+                should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
                 if len(self.Cycles) < 2 or should_reset_day:
                     _LOGGER.info("Fetching complete history")
                     current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
@@ -100,7 +101,7 @@ class EdsHelper():
                 _LOGGER.warning(e)
             
         # Fetch meter data
-        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__short_interval:
+        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__short_interval or True:
             try:
                 meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
@@ -108,7 +109,7 @@ class EdsHelper():
                     if should_reset_day:
                         self.__meter_yesterday = self.Meter.get('EnergyMeter', None)
                     if self.__meter_yesterday is not None:
-                        self.Meter["EnergyToday"] = self.__meter_yesterday - self.Meter['EnergyMeter']
+                        self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self.__meter_yesterday
             except Exception as e:
                 _LOGGER.warning(e)
 
