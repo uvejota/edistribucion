@@ -1,11 +1,11 @@
 {
   "domain": "edistribucion",
-  "name": "EDistribucion Sensor",
+  "name": "e-Distribución sensor",
   "documentation": "https://github.com/uvejota/edistribucion/",
   "issue_tracker": "https://github.com/uvejota/edistribucion/",
   "dependencies": [],
   "codeowners": [],
   "requirements": ["bs4","requests"],
-  "version": 0.5,
+  "version": 1.0,
   "iot_class": "cloud_polling"
 }
