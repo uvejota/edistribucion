@@ -82,6 +82,9 @@ cards:
     title: Informe
 ```
 
+![image](https://github.com/uvejota/edistribucion/blob/master/docs/captures/20210615_capture.PNG)
+
+
 ## Credits
 
 This repository is maintained by @uvejota and @jcortizronda for free, as a personal learning project. It was inspired by @jagalindo work (https://github.com/jagalindo/edistribucion), also maintaining some API-related code from @trocotronic repository (https://github.com/trocotronic/edistribucion).
