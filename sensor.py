@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(minutes=10)
+SCAN_INTERVAL = timedelta(seconds=15)
 FRIENDLY_NAME = 'edistribucion'
 DOMAIN = 'edistribucion'
 
@@ -104,7 +104,6 @@ class EdsSensor(Entity):
 
     def update(self):
         """Fetch new state data for the sensor."""
-
         if self.__master:
             if self.__cups is not None:
                 self.__helper.set_cups(self.__cups)

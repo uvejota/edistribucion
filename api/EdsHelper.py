@@ -11,7 +11,8 @@ class EdsHelper():
     # raw data
     __username = None
     __password = None
-    __last_update = None
+    __last_short_update = None
+    __last_long_update = None
     __short_interval = None
     __long_interval = None
 
@@ -30,7 +31,8 @@ class EdsHelper():
         self.__password = password
         self.__short_interval = short_interval
         self.__long_interval = long_interval
-        self.__last_update = None
+        self.__last_short_update = None
+        self.__last_long_update = None
 
     # To load CUPS into the helper
     def set_cups (self, candidate=None):
@@ -60,11 +62,10 @@ class EdsHelper():
 
         # updating last and current bills
         self.__fetch_all ()
-        self.__last_update = datetime.now()
 
     def __fetch_all (self):
         should_reset_day = False
-        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__long_interval or True:
+        if self.__last_long_update is None or (datetime.now() - self.__last_long_update) > self.__long_interval:
             # or (datetime.now() - self.__last_update) > self.__long_interval:
             # Fetch cycles data
             try:
@@ -75,7 +76,6 @@ class EdsHelper():
                 d3 = datetime.today()
                 should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
                 if len(self.Cycles) < 2 or should_reset_day:
-                    _LOGGER.info("Fetching complete history")
                     current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
                     last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], cycles['lstCycles'][0]['label'], cycles['lstCycles'][0]['value'])
                     self.Cycles = []
@@ -92,16 +92,16 @@ class EdsHelper():
                     except Exception as e:
                         _LOGGER.warning(e)
                 else:
-                    _LOGGER.info("Fetching only current period")
                     current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
                     self.Cycles[0] = self.__rawcycle2data (current)
                 self.Today = self.__get_day(datetime.today())
                 self.Yesterday = self.__get_day(datetime.today()-timedelta(days=1))
             except Exception as e:
                 _LOGGER.warning(e)
+            self.__last_long_update = datetime.now()
             
         # Fetch meter data
-        if self.__last_update is None or (datetime.now() - self.__last_update) > self.__short_interval or True:
+        if self.__last_short_update is None or (datetime.now() - self.__last_short_update) > self.__short_interval:
             try:
                 meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
@@ -112,6 +112,7 @@ class EdsHelper():
                         self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self.__meter_yesterday
             except Exception as e:
                 _LOGGER.warning(e)
+            self.__last_short_update = datetime.now()
 
     def __rawmeter2data (self, meter):
         Meter = {}

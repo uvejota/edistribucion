@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*
 # Testing tool for a custom adaptation of the trocotronic API
 
-ONLYNEW = True
-
 import sys
+import time
+from datetime import datetime, timedelta
 sys.path.append('..')
 from api.EdsHelper import EdsHelper
 
@@ -14,8 +14,14 @@ try:
 except:
     print('Error while setting USER and PASSWORD variables')
 
-# Try to login
-eHelper = EdsHelper(USER,PASSWORD)
-eHelper.update()
 
+# Try to login
+eHelper = EdsHelper(USER, PASSWORD, short_interval=timedelta(seconds=1), long_interval=timedelta(seconds=5))
+eHelper.update()
+print(eHelper)
+time.sleep(2)
+eHelper.update()
+print(eHelper)
+time.sleep(10)
+eHelper.update()
 print(eHelper)
