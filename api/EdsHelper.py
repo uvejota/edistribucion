@@ -25,7 +25,7 @@ class EdsHelper():
     Meter = {}
     Maximeter = {}
 
-    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=3), long_interval=timedelta(minutes=60)):
+    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=10), long_interval=timedelta(minutes=60)):
         self.__eds = EdsConnector(user, password)
         self.__username = user
         self.__password = password

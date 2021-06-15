@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=15)
+SCAN_INTERVAL = timedelta(seconds=30)
 FRIENDLY_NAME = 'edistribucion'
 DOMAIN = 'edistribucion'
 
@@ -31,8 +31,8 @@ SENSOR_TYPES = {
     "energy_today": ("Energía hoy", ENERGY_KILO_WATT_HOUR),
     "energy_yesterday": ("Energía ayer", ENERGY_KILO_WATT_HOUR),
     "energy_yesterday_detail": ("Detalle ayer", None),
-    "cycle_current": ("Ciclo actual", POWER_KILO_WATT),
-    "cycle_last": ("Ciclo anterior", POWER_KILO_WATT),
+    "cycle_current": ("Ciclo actual", ENERGY_KILO_WATT_HOUR),
+    "cycle_last": ("Ciclo anterior", ENERGY_KILO_WATT_HOUR),
     "power_peak": ("P. Pico", POWER_KILO_WATT),
     "power_peak_mean": ("P. Pico (media)", POWER_KILO_WATT),
     "power_peak_tile90": ("P. Pico (perc. 90)", POWER_KILO_WATT)
@@ -69,7 +69,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 class EdsSensor(Entity):
     """Representation of a Sensor."""
 
-    def __init__(self, eds, name=FRIENDLY_NAME, state='power', attrs=[x for x in SENSOR_TYPES], unit=POWER_KILO_WATT, cups=None, master=True):
+    def __init__(self, eds, name=FRIENDLY_NAME, state='power', attrs=[x for x in SENSOR_TYPES], cups=None, master=True):
         """Initialize the sensor."""
         self._state = None
         self._attributes = {}
