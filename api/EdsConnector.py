@@ -145,7 +145,7 @@ class EdsConnector():
                     self.__command(command=command, post=post, dashboard=dashboard, accept=accept, content_type=content_type, recursive=True)
                 else:
                     _LOGGER.warning('Got an error. Aborting command.')
-                    raise EdisError('Error processing command: {}'.format(jr['actions'][0]['error'][0]['message']['message']))
+                    raise EdisError('Error processing command: {}'.format(jr['actions'][0]['error'][0]['message']))
             return jr['actions'][0]['returnValue']
         return r
     

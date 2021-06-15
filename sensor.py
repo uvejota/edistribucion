@@ -17,6 +17,9 @@ DOMAIN = 'edistribucion'
 
 # Custom configuration entries
 CONF_CUPS = 'cups'
+CONF_SHORT_INTERVAL = 'short_interval'
+CONF_LONG_INTERVAL = 'long_interval'
+CONF_EXPLODE_SENSORS = 'explode_sensors'
 
 SENSOR_TYPES = {
     "cups": ("CUPS", None),
@@ -39,7 +42,12 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
-        vol.Optional(CONF_CUPS): cv.string
+        vol.Optional(CONF_CUPS): cv.string,
+        vol.Optional(CONF_SHORT_INTERVAL): cv.positive_int,
+        vol.Optional(CONF_LONG_INTERVAL): cv.positive_int,
+        vol.Optional(CONF_EXPLODE_SENSORS, default=[]): vol.All(
+            cv.ensure_list, [vol.In([x for x in SENSOR_TYPES if SENSOR_TYPES[x][1] is not None])]
+        ),
     }
 )
 
@@ -54,8 +62,8 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     if config[CONF_CUPS]:
         cups = config[CONF_CUPS]
     entities.append(EdsSensor(helper, cups=cups))
-    #entities.append(EdsSensor(helper, name="Energía", state='cycle_current', attrs=['energy_today', 'energy_yesterday', 'energy_yesterday_detail', 'cycle_current', 'cycle_last'], master=False))
-    #entities.append(EdsSensor(helper, name="Potencia", state='power', attrs=['power_load', 'power_limit', 'power', 'power_peak', 'power_peak_mean', 'power_peak_tile90'], master=False))
+    for sensor in config[CONF_EXPLODE_SENSORS]:
+        entities.append(EdsSensor(helper, name=sensor, state=sensor, attrs=[], master=False))
     add_entities(entities)
 
 class EdsSensor(Entity):
