@@ -59,7 +59,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     # Declare eds helper
     helper = EdsHelper(config[CONF_USERNAME], config[CONF_PASSWORD])
     cups = None
-    if config[CONF_CUPS]:
+    if CONF_CUPS in config:
         cups = config[CONF_CUPS]
     entities.append(EdsSensor(helper, cups=cups))
     for sensor in config[CONF_EXPLODE_SENSORS]:
