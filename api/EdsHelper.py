@@ -2,9 +2,7 @@ import logging
 from .EdsConnector import EdsConnector
 from datetime import datetime, timedelta
 #import calendar
-import numpy as np
 import pandas as pd
-from tabulate import tabulate
 
 LIST_P1 = ['10 - 11 h', '11 - 12 h', '12 - 13 h', '13 - 14 h', '18 - 19 h', '19 - 20 h', '20 - 21 h', '21 - 22 h']
 LIST_P2 = ['08 - 09 h', '09 - 10 h', '14 - 15 h', '15 - 16 h', '16 - 17 h', '17 - 18 h', '22 - 23 h', '23 - 24 h']
