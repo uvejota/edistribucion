@@ -30,18 +30,32 @@ sensor:
     username: !secret eds_user # this key may exist in secrets.yaml!
     password: !secret eds_password # this key may exist in secrets.yaml!
     cups: !secret eds_cups # optional, set your CUPS name. If you fail, it will select the first CUPS like by default
-    short_interval: 3 # optional, number of minutes between meter updates (those that contain immediate lectures from your counter)
+    short_interval: 5 # optional, number of minutes between meter updates (those that contain immediate lectures from your counter)
     long_interval: 60 # optional, number of minutes between cycle updates (those that contain immediate lectures from your counter)
     explode_sensors: # optional, to define extra sensors (separated from sensor.edistribucion) with the names and content specified below
       - cont # total counter energy in kWh
       - power_load # power load in %
       - power_limit # power limit in kWh
       - power # immediate power in kWh
-      - energy_today # energy estimation for today in kWh (it requires to start a new day before reporting data)
-      - energy_yesterday # energy estimation for yesterday in kWh (it may require a few hours to reflect the accumulated energy)
+      - energy_today # energy estimation for today in kWh
+      - energy_yesterday # energy consumed yesterday in kWh (it may require a few hours to reflect the accumulated energy)
+      - energy_yesterday_p1 # same for p1 phase
+      - energy_yesterday_p2 # same for p2 phase
+      - energy_yesterday_p3 # same for p3 phase
       - cycle_current # energy estimation for current billing cycle in kWh (it may require a few hours to reflect the accumulated energy)
+      - cycle_current_p1 # same for p1 phase
+      - cycle_current_p2 # same for p2 phase
+      - cycle_current_p3 # same for p3 phase
+      - cycle_current_daily # daily average
+      - cycle_current_days # days in the cycle
       - cycle_last # energy estimation for the last billing cycle in kWh (it may require a few hours to reflect the accumulated energy)
+      - cycle_last_p1 # same for p1 phase
+      - cycle_last_p2 # same for p2 phase
+      - cycle_last_p3 # same for p3 phase
+      - cycle_last_daily # daily average
+      - cycle_last_days # days in the cycle
       - power_peak # highest power peak in kW during the last 12 months
+      - power_peak_date # the date
       - power_peak_mean # mean of monthly power peaks in kW during the last 12 months
       - power_peak_tile90 # percentile 90 of monthly power peaks in kW during the last 12 months
 ```

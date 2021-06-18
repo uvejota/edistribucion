@@ -10,6 +10,9 @@ LIST_P3 = ['00 - 01 h', '01 - 02 h', '02 - 03 h', '03 - 04 h', '04 - 05 h', '05 
 
 DAYS_P3 = ['Saturday', 'Sunday']
 
+DEFAULT_SHORT_INTERVAL = timedelta(minutes=10)
+DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
+
 _LOGGER = logging.getLogger(__name__)
 
 class EdsHelper():
@@ -32,12 +35,12 @@ class EdsHelper():
     Meter = {}
     Maximeter = {}
 
-    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=10), long_interval=timedelta(minutes=60)):
+    def __init__(self, user, password, cups=None, short_interval=None, long_interval=None):
         self.__eds = EdsConnector(user, password)
         self.__username = user
         self.__password = password
-        self.__short_interval = short_interval
-        self.__long_interval = long_interval
+        self.__short_interval = short_interval if short_interval is not None else DEFAULT_SHORT_INTERVAL
+        self.__long_interval = long_interval if long_interval is not None else DEFAULT_LONG_INTERVAL
         self.__last_short_update = None
         self.__last_long_update = None
 

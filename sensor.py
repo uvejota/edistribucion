@@ -70,7 +70,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     entities = []
 
     # Declare eds helper
-    helper = EdsHelper(config[CONF_USERNAME], config[CONF_PASSWORD])
+    helper = EdsHelper(config[CONF_USERNAME], config[CONF_PASSWORD], short_interval=(timedelta(minutes=config[CONF_SHORT_INTERVAL]) if CONF_SHORT_INTERVAL in config else None), long_interval=(timedelta(minutes=config[CONF_LONG_INTERVAL]) if CONF_LONG_INTERVAL in config else None))
     cups = None
     if CONF_CUPS in config:
         cups = config[CONF_CUPS]
