@@ -78,35 +78,12 @@ cards:
     detail: 2
   - type: markdown
     content: >-
-      **==================== Suministro ====================**
-      
-      **Contador:** {{ state_attr("sensor.edistribucion", "Contador") }} 
-      
-      **ICP:** {{ state_attr("sensor.edistribucion", "ICP") }}
-      
-      **==================== Consumo =====================**
-      
-      **Hoy:** {{ state_attr("sensor.edistribucion", "Energía hoy") }}
-      
-      **Ayer:** {{ state_attr("sensor.edistribucion", "Energía ayer") }} ({{ state_attr("sensor.edistribucion", "Detalle ayer") }})
-      
-      **Ciclo actual:** {{ state_attr("sensor.edistribucion", "Ciclo actual") }}
-      
-      **Ciclo anterior:** {{ state_attr("sensor.edistribucion", "Ciclo anterior") }}
-      
-      **==================== Potencia ======================**
-      
-      **Potencia:** {{ state_attr("sensor.edistribucion", "Potencia") }} 
-      
-      **Carga:** {{ state_attr("sensor.edistribucion", "Carga actual") }}
-      
-      **Potencia máx.:** {{ state_attr("sensor.edistribucion", "P. Pico") }} 
-      
-      **Potencia máx. (media):** {{ state_attr("sensor.edistribucion", "P. Pico (media)") }}
-      
-      **Potencia máx. (percentil 90):** {{  state_attr("sensor.edistribucion", "P. Pico (perc. 90)")  }}
-      
-      **==================================================**
+      {% for attr in states.sensor.edistribucion.attributes %}
+      {%- if not attr=="friendly_name" and not attr=="unit_of_measurement"  and not attr=="icon" -%}
+      **{{attr}}**: {{state_attr("sensor.edistribucion", attr)}}
+      {{- '\n' -}}
+      {%- endif %}
+      {%- endfor -%}
     title: Informe
 ```
 
