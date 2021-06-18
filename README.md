@@ -30,8 +30,8 @@ sensor:
     username: !secret eds_user # this key may exist in secrets.yaml!
     password: !secret eds_password # this key may exist in secrets.yaml!
     cups: !secret eds_cups # optional, set your CUPS name. If you fail, it will select the first CUPS like by default
-    short_interval: 5 # optional, number of minutes between meter updates (those that contain immediate lectures from your counter)
-    long_interval: 60 # optional, number of minutes between cycle updates (those that contain immediate lectures from your counter)
+    short_interval: 5 # optional, number of minutes between meter updates (those that contain immediate lectures from your counter (e.g., power, load))
+    long_interval: 60 # optional, number of minutes between cycle updates (those that contain historical lectures (e.g., maximeter, cycles))
     explode_sensors: # optional, to define extra sensors (separated from sensor.edistribucion) with the names and content specified below
       - cont # total counter energy in kWh
       - power_load # power load in %
