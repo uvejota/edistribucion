@@ -165,7 +165,7 @@ class EdsSensor(Entity):
             return self.__helper.Cycles[0].get('Energy', None) if len(self.__helper.Cycles) > 1 else None
         elif 'cycle_current_daily' == attr:
             return self.__helper.Cycles[0].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None
-        elif 'cycle_last_days' == attr:
+        elif 'cycle_current_days' == attr:
             return self.__helper.Cycles[0].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None
         elif 'cycle_current_p1' == attr:
             return self.__helper.Cycles[0].get('Energy_P1', None) if len(self.__helper.Cycles) > 1 else None
