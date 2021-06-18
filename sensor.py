@@ -188,7 +188,7 @@ class EdsSensor(Entity):
         elif 'power_peak' == attr:
             return self.__helper.Maximeter.get('Max', None)
         elif 'power_peak_date' == attr:
-            return self.__helper.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime('%d/%m/%Y')
+            return self.__helper.Maximeter.get('DateMax', None).strftime('%d/%m/%Y') if self.__helper.Maximeter.get('DateMax', None) is not None else None
         elif 'power_peak_mean' == attr:
             return self.__helper.Maximeter.get('Average', None)
         elif 'power_peak_tile90' == attr:
