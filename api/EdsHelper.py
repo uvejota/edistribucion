@@ -3,6 +3,14 @@ from .EdsConnector import EdsConnector
 from datetime import datetime, timedelta
 #import calendar
 import numpy as np
+import pandas as pd
+from tabulate import tabulate
+
+LIST_P1 = ['10 - 11 h', '11 - 12 h', '12 - 13 h', '13 - 14 h', '18 - 19 h', '19 - 20 h', '20 - 21 h', '21 - 22 h']
+LIST_P2 = ['08 - 09 h', '09 - 10 h', '14 - 15 h', '15 - 16 h', '16 - 17 h', '17 - 18 h', '22 - 23 h', '23 - 24 h']
+LIST_P3 = ['00 - 01 h', '01 - 02 h', '02 - 03 h', '03 - 04 h', '04 - 05 h', '05 - 06 h','06 - 07 h', '07 - 08 h']
+
+DAYS_P3 = ['Saturday', 'Sunday']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,6 +23,7 @@ class EdsHelper():
     __last_long_update = None
     __short_interval = None
     __long_interval = None
+    __cycles = None
 
     __meter_yesterday = None
 
@@ -66,18 +75,17 @@ class EdsHelper():
     def __fetch_all (self):
         should_reset_day = False
         if self.__last_long_update is None or (datetime.now() - self.__last_long_update) > self.__long_interval:
-            # or (datetime.now() - self.__last_update) > self.__long_interval:
             # Fetch cycles data
             try:
-                cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
-                d0 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y')
-                d1 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
+                self.__cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
+                d0 = datetime.strptime(self.__cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y')
+                d1 = datetime.strptime(self.__cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 d3 = datetime.today()
                 should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
                 if len(self.Cycles) < 2 or should_reset_day:
                     current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-                    last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], cycles['lstCycles'][0]['label'], cycles['lstCycles'][0]['value'])
+                    last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], self.__cycles['lstCycles'][0]['label'], self.__cycles['lstCycles'][0]['value'])
                     self.Cycles = []
                     for period in [current, last]:
                         Period = self.__rawcycle2data (period)
@@ -106,7 +114,7 @@ class EdsHelper():
                 meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
                     self.Meter = self.__rawmeter2data (meter)
-                    if should_reset_day:
+                    if should_reset_day or self.__meter_yesterday is None:
                         self.__meter_yesterday = self.Meter.get('EnergyMeter', None)
                     if self.__meter_yesterday is not None:
                         self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self.__meter_yesterday
@@ -129,36 +137,38 @@ class EdsHelper():
         Period['DateEnd'] = datetime.fromisoformat(period.get('endDt','1990-01-01T22:00:00.000Z').split("T")[0]) + timedelta(days=1)
         Period['DateDelta'] = (Period['DateEnd'] - Period['DateStart']).days
         Period['EnergyMax'] = float(period.get('maxPerMonth', None))
-        Period['EnergySum'] = float(period.get('totalValue', None).replace(",","."))
-        if Period['EnergySum'] is not None and Period['DateDelta'] > 0:
-            Period['EnergyDaily'] = round(Period['EnergySum'] / Period['DateDelta'], 2)
-        Period['Detail'] = period.get('mapHourlyPoints', None)
+        Period['Energy'] = float(period.get('totalValue', None).replace(",","."))
+        if Period['Energy'] is not None and Period['DateDelta'] > 0:
+            Period['EnergyDaily'] = round(Period['Energy'] / Period['DateDelta'], 2)
+        data = period.get('mapHourlyPoints', None)
+        if data is not None:
+            good_data = []
+            for day in data:
+                for idx in data[day]:
+                    new_element={}
+                    new_element['date'] = day
+                    for key in idx:
+                        new_element[key] = idx[key]
+                    good_data.append(new_element)
+            Period['df'] = pd.DataFrame(good_data)
+            Period['df']['weekday'] = pd.to_datetime(Period['df']['date'], format='%d-%m-%Y').dt.day_name()
+            Period['Energy_P1'] = round(Period['df']['value'].loc[(Period['df']['hour'].isin(LIST_P1)) & (~Period['df']['weekday'].isin(DAYS_P3))].sum(), 2)
+            Period['Energy_P2'] = round(Period['df']['value'].loc[(Period['df']['hour'].isin(LIST_P2)) & (~Period['df']['weekday'].isin(DAYS_P3))].sum(), 2)
+            Period['Energy_P3'] = round(Period['Energy'] - Period['Energy_P1'] - Period['Energy_P2'], 2)
+            #print(tabulate(Period['df'], headers = 'keys', tablefmt = 'psql'))
+            #Period['Detail'] = data
         return Period
 
     def __rawmaximeter2data (self, maximeter):
         Maximeter = {}
-        Maximeter['Max'] = 0
-        Maximeter['DateMax'] = None
-        Maximeter['Average'] = 0
-        Maximeter['Percentile99'] = 0
-        Maximeter['Percentile95'] = 0
-        Maximeter['Percentile90'] = 0
-        Maximeter['Detail'] = maximeter.get('lstData', None)
-        all_values = []
-        count = 0
-        for m in Maximeter['Detail']:
-            if m['value'] > 0:
-                all_values.append(m['value'])
-                Maximeter['Average'] = Maximeter['Average'] + m['value']
-                count = count + 1
-                if m['value'] > Maximeter['Max']:
-                    Maximeter['Max'] = m['value']
-                    Maximeter['DateMax'] = datetime.strptime(m['date'] + "_" + m['hour'], '%d-%m-%Y_%H:%M')
-        if count > 0:
-            Maximeter['Average'] = round(Maximeter['Average'] / count, 2)
-        Maximeter['Percentile99'] = round(np.percentile(np.array(all_values), 99), 2)
-        Maximeter['Percentile95'] = round(np.percentile(np.array(all_values), 95), 2)
-        Maximeter['Percentile90'] = round(np.percentile(np.array(all_values), 90), 2)
+        Maximeter['df'] =  pd.DataFrame([x for x in maximeter.get('lstData', None) if x['valid'] == True])
+        Maximeter['Average'] = round(Maximeter['df']['value'].mean(), 2)
+        Maximeter['Max'] = round(Maximeter['df']['value'].max(), 2)
+        idx_max = Maximeter['df']['value'].idxmax()
+        Maximeter['DateMax'] = datetime.strptime(Maximeter['df'].iloc[idx_max]['date'] + "_" + Maximeter['df'].iloc[idx_max]['hour'], '%d-%m-%Y_%H:%M')
+        Maximeter['Percentile99'] = round(Maximeter['df']['value'].quantile(.99), 2)
+        Maximeter['Percentile95'] = round(Maximeter['df']['value'].quantile(.95), 2)
+        Maximeter['Percentile90'] = round(Maximeter['df']['value'].quantile(.90), 2)
         return Maximeter
 
     def __get_day (self, date):
@@ -171,19 +181,19 @@ class EdsHelper():
         is_summer = True if start_summer < datetime.today() < end_summer else False
         '''
         Day = {}
-        Day['Energy'] = 0
-        Day['P1'] = 0
-        Day['P2'] = 0
-        Day['P3'] = 0
+        Day['Energy'] = None
+        Day['Energy_P1'] = None
+        Day['Energy_P2'] = None
+        Day['Energy_P3'] = None
         for c in self.Cycles:
-            if date_str in c['Detail']:
-                Day['Energy'] = round(np.sum( [ x['value'] for x in c['Detail'][date_str] ] ), 2)
-                Day['P1'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (10 <= ind < 14) or (18 <= ind < 22) ] ), 2)
-                Day['P2'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (8 <= ind < 10) or (14 <= ind < 18) or (22 <= ind <= 23) ] ), 2)
-                Day['P3'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (0 <= ind < 8) ] ), 2)
+            if date_str in c['df']['date'].values:
+                tempdf = c['df'].loc[c['df']['date'] == date_str]
+                Day['Energy'] = round(tempdf['value'].sum(), 2)
+                Day['Energy_P1'] = round(tempdf['value'].loc[(tempdf['hour'].isin(LIST_P1)) & (~tempdf['weekday'].isin(DAYS_P3))].sum(), 2)
+                Day['Energy_P2'] = round(tempdf['value'].loc[(tempdf['hour'].isin(LIST_P2)) & (~tempdf['weekday'].isin(DAYS_P3))].sum(), 2)
+                Day['Energy_P3'] = Day['Energy'] - Day['Energy_P1'] - Day['Energy_P2']
                 break
-        else:
-            Day = None
+
         return Day
 
     def __str__ (self):
@@ -191,15 +201,19 @@ class EdsHelper():
             f"""
             \r* CUPS: {self.Supply.get('CUPS', '-')}
             \r* Contador (kWh): {self.Meter.get('EnergyMeter', '-')}
-            \r* Contador (kWh): {self.Meter.get('EnergyToday', '-')}
+            \r* Energía hoy (kWh): {self.Meter.get('EnergyToday', '-')}
             \r* Estado ICP: {self.Meter.get('ICP', '-')}
             \r* Carga actual (%): {self.Meter.get('Load', '-')}
             \r* Potencia contratada (kW): {self.Supply.get('PowerLimit', '-')}
             \r* Potencia demandada (kW): {self.Meter.get('Power', '-')}
-            \r* Hoy (kWh): {self.Today.get('Energy', '-')} (P1: {self.Today.get('P1', '-')} | P2: {self.Today.get('P2', '-')} | P3: {self.Today.get('P3', '-')})
-            \r* Ayer (kWh): {self.Yesterday.get('Energy', '-')} (P1: {self.Yesterday.get('P1', '-')} | P2: {self.Yesterday.get('P2', '-')} | P3: {self.Yesterday.get('P3', '-')})
-            \r* Ciclo anterior (kWh): {self.Cycles[1].get('EnergySum', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[1].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[1].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
-            \r* Ciclo actual (kWh): {self.Cycles[0].get('EnergySum', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[0].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[0].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
+            \r* Hoy (kWh): {self.Today.get('Energy', '-')} 
+            \r* Hoy detalle (kWh): (P1: {self.Today.get('Energy_P1', '-')} | P2: {self.Today.get('Energy_P2', '-')} | P3: {self.Today.get('Energy_P3', '-')})
+            \r* Ayer (kWh): {self.Yesterday.get('Energy', '-')} (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
+            \r* Hoy detalle (kWh): (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
+            \r* Ciclo anterior (kWh): {self.Cycles[1].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[1].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[1].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
+            \r* Ciclo anterior detalle (kWh): (P1: {self.Cycles[1].get('Energy_P1', '-')  if len(self.Cycles) > 1 else None} | P2: {self.Cycles[1].get('Energy_P2', '-')  if len(self.Cycles) > 1 else None} | P3: {self.Cycles[1].get('Energy_P3', '-')  if len(self.Cycles) > 1 else None})
+            \r* Ciclo actual (kWh): {self.Cycles[0].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[0].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[0].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
+            \r* Ciclo actual detalle (kWh): (P1: {self.Cycles[0].get('Energy_P1', '-')  if len(self.Cycles) > 1 else None} | P2: {self.Cycles[0].get('Energy_P2', '-')  if len(self.Cycles) > 1 else None} | P3: {self.Cycles[0].get('Energy_P3', '-')  if len(self.Cycles) > 1 else None})
             \r* Potencia máxima (kW): {self.Maximeter.get('Max', '-')} el {self.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime("%d/%m/%Y")}
             \r* Potencia media (kW): {self.Maximeter.get('Average', '-')}
             \r* Potencia percentil (99 | 95 | 90) (kW): {self.Maximeter.get('Percentile99', '-')} | {self.Maximeter.get('Percentile95', '-')} | {self.Maximeter.get('Percentile90', '-')} 

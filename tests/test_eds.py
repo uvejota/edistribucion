@@ -19,9 +19,11 @@ except:
 eHelper = EdsHelper(USER, PASSWORD, short_interval=timedelta(seconds=1), long_interval=timedelta(seconds=5))
 eHelper.update()
 print(eHelper)
+'''
 time.sleep(2)
 eHelper.update()
 print(eHelper)
 time.sleep(10)
 eHelper.update()
 print(eHelper)
+'''
