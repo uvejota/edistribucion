@@ -45,10 +45,10 @@ SENSOR_TYPES = {
     "cycle_last_p1": ("C. anterior (P1)", ENERGY_KILO_WATT_HOUR),
     "cycle_last_p2": ("C. anterior (P2)", ENERGY_KILO_WATT_HOUR),
     "cycle_last_p3": ("C. anterior (P3)", ENERGY_KILO_WATT_HOUR),
-    "power_peak": ("P. Pico", POWER_KILO_WATT),
-    "power_peak_date": ("P. Pico (fecha)", None),
-    "power_peak_mean": ("P. Pico (media)", POWER_KILO_WATT),
-    "power_peak_tile90": ("P. Pico (perc. 90)", POWER_KILO_WATT)
+    "power_peak": ("Potencia pico", POWER_KILO_WATT),
+    "power_peak_date": ("P. pico (fecha)", None),
+    "power_peak_mean": ("P. pico (media)", POWER_KILO_WATT),
+    "power_peak_tile90": ("P. pico (perc. 90)", POWER_KILO_WATT)
 }
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -194,4 +194,4 @@ class EdsSensor(Entity):
         elif 'power_peak_tile90' == attr:
             return self.__helper.Maximeter.get('Percentile90', None)
         else:
-            _LOGGER.warning ("unrecognised attribute with label" + str(attr))
+            _LOGGER.warning ("unrecognised attribute with label " + str(attr))
