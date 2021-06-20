@@ -86,13 +86,13 @@ class EdsSensor(Entity):
         """Initialize the sensor."""
         self._state = None
         self._attributes = {}
-        self.__cups = cups
-        self.__helper = eds
-        self.__statelabel = state
-        self.__friendlyname = name
-        self.__master = master
-        self.__attrs = attrs
-        self.__unit = SENSOR_TYPES[state][1]
+        self._cups = cups
+        self._helper = eds
+        self._statelabel = state
+        self._friendlyname = name
+        self._master = master
+        self._attrs = attrs
+        self._unit = SENSOR_TYPES[state][1]
 
         for attr in attrs:
             self._attributes[SENSOR_TYPES[attr][0]] = None
@@ -101,7 +101,7 @@ class EdsSensor(Entity):
     @property
     def name(self):
         """Return the name of the sensor."""
-        return self.__friendlyname
+        return self._friendlyname
 
     @property
     def state(self):
@@ -116,82 +116,79 @@ class EdsSensor(Entity):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        return self.__unit
+        return self._unit
 
     @property
     def device_state_attributes(self):
         """Return the state attributes."""
         return self._attributes
 
-    def update(self):
+    async def async_update(self):
         """Fetch new state data for the sensor."""
-        if self.__master:
-            if self.__cups is not None:
-                self.__helper.set_cups(self.__cups)
-
-            self.__helper.update()
+        if self._master:
+            await self._helper.async_update(self._cups)
 
         # update attrs
-        for attr in self.__attrs:
-            self._attributes[SENSOR_TYPES[attr][0]] = f"{self.__get_attr_value(attr)} {SENSOR_TYPES[attr][1] if SENSOR_TYPES[attr][1] is not None else ''}"
+        for attr in self._attrs:
+            self._attributes[SENSOR_TYPES[attr][0]] = f"{self._get_attr_value(attr)} {SENSOR_TYPES[attr][1] if SENSOR_TYPES[attr][1] is not None else ''}"
             
         # update state
-        self._state = self.__get_attr_value(self.__statelabel)
+        self._state = self._get_attr_value(self._statelabel)
 
-    def __get_attr_value (self, attr):
+    def _get_attr_value (self, attr):
         if 'cups' == attr:
-            return self.__helper.Supply.get('CUPS', None)
+            return self._helper.Supply.get('CUPS', None)
         elif 'cont' == attr:
-            return self.__helper.Meter.get('EnergyMeter', None)
+            return self._helper.Meter.get('EnergyMeter', None)
         elif 'icp_status' == attr:
-            return self.__helper.Meter.get('ICP', None)
+            return self._helper.Meter.get('ICP', None)
         elif 'power_load' == attr:
-            return self.__helper.Meter.get('Load', None)
+            return self._helper.Meter.get('Load', None)
         elif 'power_limit' == attr:
-            return self.__helper.Supply.get('PowerLimit', None)
+            return self._helper.Supply.get('PowerLimit', None)
         elif 'power' == attr:
-            return self.__helper.Meter.get('Power', None)
+            return self._helper.Meter.get('Power', None)
         elif 'energy_today' == attr:
-            return self.__helper.Meter.get('EnergyToday', None)
+            return self._helper.Meter.get('EnergyToday', None)
         elif 'energy_yesterday' == attr:
-            return self.__helper.Yesterday.get('Energy', None)
+            return self._helper.Yesterday.get('Energy', None)
         elif 'energy_yesterday_p1' == attr:
-            return self.__helper.Yesterday.get('Energy_P1', None)
+            return self._helper.Yesterday.get('Energy_P1', None)
         elif 'energy_yesterday_p2' == attr:
-            return self.__helper.Yesterday.get('Energy_P2', None)
+            return self._helper.Yesterday.get('Energy_P2', None)
         elif 'energy_yesterday_p3' == attr:
-            return self.__helper.Yesterday.get('Energy_P3', None)
+            return self._helper.Yesterday.get('Energy_P3', None)
         elif 'cycle_current' == attr:
-            return self.__helper.Cycles[0].get('Energy', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('Energy', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_daily' == attr:
-            return self.__helper.Cycles[0].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('EnergyDaily', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_days' == attr:
-            return self.__helper.Cycles[0].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('DateDelta', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_p1' == attr:
-            return self.__helper.Cycles[0].get('Energy_P1', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('Energy_P1', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_p2' == attr:
-            return self.__helper.Cycles[0].get('Energy_P2', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_p3' == attr:
-            return self.__helper.Cycles[0].get('Energy_P3', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[0].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last' == attr:
-            return self.__helper.Cycles[1].get('Energy', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('Energy', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_daily' == attr:
-            return self.__helper.Cycles[1].get('EnergyDaily', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('EnergyDaily', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_days' == attr:
-            return self.__helper.Cycles[1].get('DateDelta', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('DateDelta', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_p1' == attr:
-            return self.__helper.Cycles[1].get('Energy_P1', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('Energy_P1', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_p2' == attr:
-            return self.__helper.Cycles[1].get('Energy_P2', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_p3' == attr:
-            return self.__helper.Cycles[1].get('Energy_P3', None) if len(self.__helper.Cycles) > 1 else None
+            return self._helper.Cycles[1].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
         elif 'power_peak' == attr:
-            return self.__helper.Maximeter.get('Max', None)
+            return self._helper.Maximeter.get('Max', None)
         elif 'power_peak_date' == attr:
-            return self.__helper.Maximeter.get('DateMax', None).strftime('%d/%m/%Y') if self.__helper.Maximeter.get('DateMax', None) is not None else None
+            return self._helper.Maximeter.get('DateMax', None).strftime('%d/%m/%Y') if self._helper.Maximeter.get('DateMax', None) is not None else None
         elif 'power_peak_mean' == attr:
-            return self.__helper.Maximeter.get('Average', None)
+            return self._helper.Maximeter.get('Average', None)
         elif 'power_peak_tile90' == attr:
-            return self.__helper.Maximeter.get('Percentile90', None)
+            return self._helper.Maximeter.get('Percentile90', None)
         else:
             _LOGGER.warning ("unrecognised attribute with label " + str(attr))

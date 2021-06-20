@@ -3,6 +3,7 @@ from .EdsConnector import EdsConnector
 from datetime import datetime, timedelta
 #import calendar
 import pandas as pd
+import asyncio
 
 LIST_P1 = ['10 - 11 h', '11 - 12 h', '12 - 13 h', '13 - 14 h', '18 - 19 h', '19 - 20 h', '20 - 21 h', '21 - 22 h']
 LIST_P2 = ['08 - 09 h', '09 - 10 h', '14 - 15 h', '15 - 16 h', '16 - 17 h', '17 - 18 h', '22 - 23 h', '23 - 24 h']
@@ -16,17 +17,20 @@ DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
 _LOGGER = logging.getLogger(__name__)
 
 class EdsHelper():
-    __eds = None
+    _eds = None
     # raw data
-    __username = None
-    __password = None
-    __last_short_update = None
-    __last_long_update = None
-    __short_interval = None
-    __long_interval = None
-    __cycles = None
+    _username = None
+    _password = None
+    _last_short_update = None
+    _last_long_update = None
+    _short_interval = None
+    _long_interval = None
+    _cycles = None
 
-    __meter_yesterday = None
+    _meter_yesterday = None
+
+    _busy = False
+    _should_reset_day = False
 
     Supply = {}
     Today = {}
@@ -36,18 +40,19 @@ class EdsHelper():
     Maximeter = {}
 
     def __init__(self, user, password, cups=None, short_interval=None, long_interval=None):
-        self.__eds = EdsConnector(user, password)
-        self.__username = user
-        self.__password = password
-        self.__short_interval = short_interval if short_interval is not None else DEFAULT_SHORT_INTERVAL
-        self.__long_interval = long_interval if long_interval is not None else DEFAULT_LONG_INTERVAL
-        self.__last_short_update = None
-        self.__last_long_update = None
+        self._eds = EdsConnector(user, password)
+        self._username = user
+        self._password = password
+        self._short_interval = short_interval if short_interval is not None else DEFAULT_SHORT_INTERVAL
+        self._long_interval = long_interval if long_interval is not None else DEFAULT_LONG_INTERVAL
+        self._last_short_update = None
+        self._last_long_update = None
+        self._loop = asyncio.get_event_loop()
 
     # To load CUPS into the helper
-    def set_cups (self, candidate=None):
-        self.__eds.login()
-        all_cups = self.__eds.get_cups_list()
+    def _set_cups (self, candidate=None):
+        self._eds.login()
+        all_cups = self._eds.get_cups_list()
         _LOGGER.debug ("CUPS:" + str(all_cups))
         found = False
         for c in all_cups:
@@ -63,67 +68,74 @@ class EdsHelper():
             found = False
         return found
     
-    def update (self):
-        # updating cups or login
-        if self.Supply.get('CUPS', None) is None:
-            self.set_cups()
-        else:
-            self.__eds.login()
+    def update (self, cups=None):
+        if not self._busy:
+            self._busy = True
+            try:
+                # updating cups or login
+                if self.Supply.get('CUPS', None) is None or self.Supply.get('CUPS', None) != cups:
+                    self._set_cups(cups)
+                else:
+                    self._eds.login()
+                # updating last and current bills
+                self._fetch_all ()
+            except Exception:
+                pass
+            self._busy = False
 
-        # updating last and current bills
-        self.__fetch_all ()
+    async def async_update (self, cups=None):
+        self._loop.run_in_executor(None, self.update, cups)
 
-    def __fetch_all (self):
-        should_reset_day = False
-        if self.__last_long_update is None or (datetime.now() - self.__last_long_update) > self.__long_interval:
+    def _fetch_all (self):
+        if self._last_long_update is None or (datetime.now() - self._last_long_update) > self._long_interval:
             # Fetch cycles data
             try:
-                self.__cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
-                d0 = datetime.strptime(self.__cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y')
-                d1 = datetime.strptime(self.__cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
+                self._cycles = self._eds.get_cycle_list(self.Supply['CONT_Id'])
+                d0 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y')
+                d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 d3 = datetime.today()
-                should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
-                if len(self.Cycles) < 2 or should_reset_day:
-                    current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-                    last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], self.__cycles['lstCycles'][0]['label'], self.__cycles['lstCycles'][0]['value'])
+                self._should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
+                if len(self.Cycles) < 2 or self._should_reset_day:
+                    current = self._eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
+                    last = self._eds.get_cycle_curve(self.Supply['CONT_Id'], self._cycles['lstCycles'][0]['label'], self._cycles['lstCycles'][0]['value'])
                     self.Cycles = []
                     for period in [current, last]:
-                        Period = self.__rawcycle2data (period)
+                        Period = self._rawcycle2data (period)
                         self.Cycles.append(Period)
                     # Fetch maximeter data
                     try:
                         d0 = datetime.today()-timedelta(days=395)
                         d1 = datetime.today()
-                        maximeter = self.__eds.get_maximeter (self.Supply['CUPS_Id'], d0.strftime("%m/%Y"), d1.strftime("%m/%Y"))
+                        maximeter = self._eds.get_maximeter (self.Supply['CUPS_Id'], d0.strftime("%m/%Y"), d1.strftime("%m/%Y"))
                         if maximeter is not None:
-                            self.Maximeter = self.__rawmaximeter2data (maximeter)
+                            self.Maximeter = self._rawmaximeter2data (maximeter)
                     except Exception as e:
                         _LOGGER.warning(e)
                 else:
-                    current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-                    self.Cycles[0] = self.__rawcycle2data (current)
-                self.Today = self.__get_day(datetime.today())
-                self.Yesterday = self.__get_day(datetime.today()-timedelta(days=1))
+                    current = self._eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
+                    self.Cycles[0] = self._rawcycle2data (current)
+                self.Today = self._get_day(datetime.today())
+                self.Yesterday = self._get_day(datetime.today()-timedelta(days=1))
             except Exception as e:
                 _LOGGER.warning(e)
-            self.__last_long_update = datetime.now()
+            self._last_long_update = datetime.now()
             
         # Fetch meter data
-        if self.__last_short_update is None or (datetime.now() - self.__last_short_update) > self.__short_interval:
+        if self._last_short_update is None or (datetime.now() - self._last_short_update) > self._short_interval:
             try:
-                meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
+                meter = self._eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
-                    self.Meter = self.__rawmeter2data (meter)
-                    if should_reset_day or self.__meter_yesterday is None:
-                        self.__meter_yesterday = self.Meter.get('EnergyMeter', None)
-                    if self.__meter_yesterday is not None:
-                        self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self.__meter_yesterday
+                    self.Meter = self._rawmeter2data (meter)
+                    if self._should_reset_day or self._meter_yesterday is None:
+                        self._meter_yesterday = self.Meter.get('EnergyMeter', None)
+                    if self._meter_yesterday is not None:
+                        self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self._meter_yesterday
             except Exception as e:
                 _LOGGER.warning(e)
-            self.__last_short_update = datetime.now()
+            self._last_short_update = datetime.now()
 
-    def __rawmeter2data (self, meter):
+    def _rawmeter2data (self, meter):
         Meter = {}
         Meter['Power'] = meter.get('potenciaActual', None)
         Meter['ICP'] = meter.get('estadoICP', None)
@@ -132,7 +144,7 @@ class EdsHelper():
         Meter['PowerLimit'] = meter.get('potenciaContratada', None)
         return Meter
 
-    def __rawcycle2data (self, period):
+    def _rawcycle2data (self, period):
         Period = {}
         Period['DateStart'] = datetime.fromisoformat(period.get('startDt','1990-01-01T22:00:00.000Z').split("T")[0]) + timedelta(days=1)
         Period['DateEnd'] = datetime.fromisoformat(period.get('endDt','1990-01-01T22:00:00.000Z').split("T")[0]) + timedelta(days=1)
@@ -160,7 +172,7 @@ class EdsHelper():
             #Period['Detail'] = data
         return Period
 
-    def __rawmaximeter2data (self, maximeter):
+    def _rawmaximeter2data (self, maximeter):
         Maximeter = {}
         Maximeter['df'] =  pd.DataFrame([x for x in maximeter.get('lstData', None) if x['valid'] == True])
         Maximeter['Average'] = round(Maximeter['df']['value'].mean(), 2)
@@ -172,7 +184,7 @@ class EdsHelper():
         Maximeter['Percentile90'] = round(Maximeter['df']['value'].quantile(.90), 2)
         return Maximeter
 
-    def __get_day (self, date):
+    def _get_day (self, date):
         date_str = date.strftime('%d-%m-%Y')
         '''
         start_summer = calendar.monthcalendar(date_str.year, 3)
@@ -209,8 +221,8 @@ class EdsHelper():
             \r* Potencia demandada (kW): {self.Meter.get('Power', '-')}
             \r* Hoy (kWh): {self.Today.get('Energy', '-')} 
             \r* Hoy detalle (kWh): (P1: {self.Today.get('Energy_P1', '-')} | P2: {self.Today.get('Energy_P2', '-')} | P3: {self.Today.get('Energy_P3', '-')})
-            \r* Ayer (kWh): {self.Yesterday.get('Energy', '-')} (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
-            \r* Hoy detalle (kWh): (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
+            \r* Ayer (kWh): {self.Yesterday.get('Energy', '-')}
+            \r* Ayer detalle (kWh): (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
             \r* Ciclo anterior (kWh): {self.Cycles[1].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[1].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[1].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
             \r* Ciclo anterior detalle (kWh): (P1: {self.Cycles[1].get('Energy_P1', '-')  if len(self.Cycles) > 1 else None} | P2: {self.Cycles[1].get('Energy_P2', '-')  if len(self.Cycles) > 1 else None} | P3: {self.Cycles[1].get('Energy_P3', '-')  if len(self.Cycles) > 1 else None})
             \r* Ciclo actual (kWh): {self.Cycles[0].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[0].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[0].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
