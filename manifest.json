@@ -5,7 +5,7 @@
   "issue_tracker": "https://github.com/uvejota/edistribucion/",
   "dependencies": [],
   "codeowners": [],
-  "requirements": ["bs4","requests","pandas"],
+  "requirements": ["bs4","requests","pandas","aiopvpc==2.2.0"],
   "version": 1.0,
   "iot_class": "cloud_polling"
 }
