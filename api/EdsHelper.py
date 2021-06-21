@@ -43,7 +43,7 @@ class EdsHelper():
     _meter_yesterday = None
 
     _busy = False
-    _should_reset_day = False
+    _should_reset_day = None
 
     Supply = {}
     Today = {}
@@ -76,7 +76,24 @@ class EdsHelper():
                 self.Supply['CONT_Id'] = c.get('Id', None)
                 self.Supply['Active'] = c.get('Active', None)
                 self.Supply['PowerLimit'] = c.get('Power', None)
+                self.Supply['PowerLimit_P1'] = self.Supply['PowerLimit']
+                self.Supply['PowerLimit_P2'] = self.Supply['PowerLimit']
                 found = True
+                try:
+                    for atr in self._eds.get_cups_detail (self.Supply['CUPS_Id']).get('lstATR', None):
+                        if atr.get('Status', None) == 'EN VIGOR':
+                            self.Supply['ATTR_Id'] = atr.get ('Id', None)
+                            attr = self._eds.get_atr_detail (self.Supply['ATTR_Id'])
+                            for item in attr:
+                                if 'title' in item:
+                                    if item['title'] == 'Potencia contratada 1 (kW)':
+                                        self.Supply['PowerLimit_P1'] = float(item['value'].replace(",", "."))
+                                    elif item['title'] == 'Potencia contratada 2 (kW)':
+                                        self.Supply['PowerLimit_P2'] = float(item['value'].replace(",", "."))
+                except Exception as e:
+                    _LOGGER.warning (e + f"; assuming {self.Supply['PowerLimit']} as P1 and P2 power limits")
+                    self.Supply['PowerLimit_P1'] = self.Supply['PowerLimit']
+                    self.Supply['PowerLimit_P2'] = self.Supply['PowerLimit']
                 break
         else:
             found = False
@@ -98,9 +115,11 @@ class EdsHelper():
             self._busy = False
 
     async def async_update (self, cups=None):
-        #asyncio.get_event_loop().run_in_executor(None, self.update_pvpc_prices)
-        await self._get_pvpc_prices()
+        if self._should_reset_day is None or self._should_reset_day:
+            await self._get_pvpc_prices()
         self._loop.run_in_executor(None, self.update, cups)
+        if self._should_reset_day is None or self._should_reset_day:
+            self._should_reset_day = False
 
     def _fetch_all (self):
         if self._last_long_update is None or (datetime.now() - self._last_long_update) > self._long_interval:
@@ -151,7 +170,7 @@ class EdsHelper():
                 _LOGGER.warning(e)
             # Update prices if needed
             try:
-                if self.PVPC is not None and self.PVPC['ready'] == False:
+                if self.PVPC is not None and self.PVPC.get('raw', None) is not None and self.PVPC['ready'] == False:
                     self.PVPC['df'] = pd.DataFrame([{'datetime': x.astimezone(tz.timezone('Europe/Madrid')),'date': x.astimezone(tz.timezone('Europe/Madrid')).strftime("%d-%m-%Y"), 'hour': f"{x.astimezone(tz.timezone('Europe/Madrid')).strftime('%H')} - {(x.astimezone(tz.timezone('Europe/Madrid')).hour + 1):02d} h", 'price': self.PVPC['raw'][x]} for x in self.PVPC['raw']])
                     self.PVPC['ready'] = True
                     for cycle in self.Cycles:
@@ -160,10 +179,8 @@ class EdsHelper():
                             cycle['df']['energy_price'] = cycle['df']['value'] * cycle['df']['price']
                             cycle['Energy_Cost'] = round(cycle['df']['energy_price'].sum(), 2)
                             cycle['Energy_AvgCost'] = round(cycle['Energy_Cost'] / cycle['Energy'], 2)
-                            # TODO update with P1 and P2 power prices
-                            cycle['Power_Cost'] = round((self.Supply['PowerLimit'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.Supply['PowerLimit'] * DEFAULT_DAILY_PRICE_P2) * cycle['DateDelta'], 2)
+                            cycle['Power_Cost'] = round((self.Supply['PowerLimit_P1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.Supply['PowerLimit_P2'] * DEFAULT_DAILY_PRICE_P2) * cycle['DateDelta'], 2)
                             cycle['Bill'] = round(((cycle['Energy_Cost'] + cycle['Power_Cost']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * cycle['DateDelta'] / 30)) * DEFAULT_TAX_IVA, 2)
-                            #print(tabulate(cycle['df'], headers = 'keys', tablefmt = 'psql'))
             except Exception as e:
                 _LOGGER.warning(e)
             self._last_short_update = datetime.now()
@@ -171,7 +188,7 @@ class EdsHelper():
     async def _get_pvpc_prices (self):
         pvpc_handler = PVPCData(tariff=TARIFFS[0], local_timezone='Europe/Madrid')
         start = datetime.today() - timedelta(days=60)
-        end = datetime.today() + timedelta(days=1)
+        end = datetime.today()
         self.PVPC['raw'] = await pvpc_handler.async_download_prices_for_range(start, end)
         self.PVPC['ready'] = False
 

@@ -262,7 +262,7 @@ class EdsConnector():
     def get_atr_detail(self, atr):
         msg = '{"actions":[{"id":"62;a","descriptor":"apex://WP_ContractATRDetail_CTRL/ACTION$getATRDetail","callingDescriptor":"markup://c:WP_SuppliesATRDetailForm","params":{"atrId":"'+atr+'"}}]}',
         cmd = 'other.WP_ContractATRDetail_CTRL.getATRDetail=1'
-        return self._safe_command (cmd, msg)
+        return self._safe_command (cmd, msg)['data']
     
     def get_solicitud_atr_detail(self, sol):
         msg = '{"actions":[{"id":"56;a","descriptor":"apex://WP_SolicitudATRDetail_CTRL/ACTION$getSolicitudATRDetail","callingDescriptor":"markup://c:WP_ATR_Requests_Detail_Form","params":{"solId":"'+sol+'"}}]}',
