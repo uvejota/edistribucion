@@ -1,5 +1,5 @@
 import logging
-from homeassistant.const import POWER_KILO_WATT, ENERGY_KILO_WATT_HOUR, TIME_DAYS, PERCENTAGE
+from homeassistant.const import POWER_KILO_WATT, ENERGY_KILO_WATT_HOUR, TIME_DAYS, PERCENTAGE, CURRENCY_EURO
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers import config_validation as cv, entity_platform
 import voluptuous as vol
@@ -39,12 +39,14 @@ SENSOR_TYPES = {
     "cycle_current_p1": ("C. actual (P1)", ENERGY_KILO_WATT_HOUR),
     "cycle_current_p2": ("C. actual (P2)", ENERGY_KILO_WATT_HOUR),
     "cycle_current_p3": ("C. actual (P3)", ENERGY_KILO_WATT_HOUR),
+    "cycle_current_pvpc": ("C. actual (PVPC)", CURRENCY_EURO),
     "cycle_last": ("Ciclo anterior", ENERGY_KILO_WATT_HOUR),
     "cycle_last_daily": ("C. anterior (diario)", ENERGY_KILO_WATT_HOUR),
     "cycle_last_days": ("C. anterior (días)", TIME_DAYS),
     "cycle_last_p1": ("C. anterior (P1)", ENERGY_KILO_WATT_HOUR),
     "cycle_last_p2": ("C. anterior (P2)", ENERGY_KILO_WATT_HOUR),
     "cycle_last_p3": ("C. anterior (P3)", ENERGY_KILO_WATT_HOUR),
+    "cycle_last_pvpc": ("C. anterior (PVPC)", CURRENCY_EURO),
     "power_peak": ("Potencia pico", POWER_KILO_WATT),
     "power_peak_date": ("P. pico (fecha)", None),
     "power_peak_mean": ("P. pico (media)", POWER_KILO_WATT),
@@ -76,7 +78,8 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
         cups = config[CONF_CUPS]
     entities.append(EdsSensor(helper, cups=cups))
     for sensor in config[CONF_EXPLODE_SENSORS]:
-        entities.append(EdsSensor(helper, name=sensor, state=sensor, attrs=[], master=False))
+        if SENSOR_TYPES[sensor][1] is not None:
+            entities.append(EdsSensor(helper, name=sensor, state=sensor, attrs=[], master=False))
     add_entities(entities)
 
 class EdsSensor(Entity):
@@ -170,6 +173,8 @@ class EdsSensor(Entity):
             return self._helper.Cycles[0].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_current_p3' == attr:
             return self._helper.Cycles[0].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
+        elif 'cycle_current_pvpc' == attr:
+            return self._helper.Cycles[0].get('Bill', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last' == attr:
             return self._helper.Cycles[1].get('Energy', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_daily' == attr:
@@ -182,6 +187,8 @@ class EdsSensor(Entity):
             return self._helper.Cycles[1].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
         elif 'cycle_last_p3' == attr:
             return self._helper.Cycles[1].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
+        elif 'cycle_last_pvpc' == attr:
+            return self._helper.Cycles[1].get('Bill', None) if len(self._helper.Cycles) > 1 else None
         elif 'power_peak' == attr:
             return self._helper.Maximeter.get('Max', None)
         elif 'power_peak_date' == attr:

@@ -5,12 +5,24 @@ from datetime import datetime, timedelta
 import pandas as pd
 import asyncio
 from aiopvpc import PVPCData, TARIFFS
+import pytz as tz
+from tabulate import tabulate
 
 LIST_P1 = ['10 - 11 h', '11 - 12 h', '12 - 13 h', '13 - 14 h', '18 - 19 h', '19 - 20 h', '20 - 21 h', '21 - 22 h']
 LIST_P2 = ['08 - 09 h', '09 - 10 h', '14 - 15 h', '15 - 16 h', '16 - 17 h', '17 - 18 h', '22 - 23 h', '23 - 24 h']
 LIST_P3 = ['00 - 01 h', '01 - 02 h', '02 - 03 h', '03 - 04 h', '04 - 05 h', '05 - 06 h','06 - 07 h', '07 - 08 h']
 
 DAYS_P3 = ['Saturday', 'Sunday']
+
+DEFAULT_PRICE_P1 = 30.67266 # €/kW/year
+DEFAULT_PRICE_P2 = 1.4243591 # €/kW/year
+DEFAULT_DAILY_PRICE_P1 = DEFAULT_PRICE_P1 / 365
+DEFAULT_DAILY_PRICE_P2 = DEFAULT_PRICE_P2 / 365
+DEFAULT_PRICE_CONT = 0.81 # €/month
+DEFAULT_PRICE_COMERC = 3.113 # €/kW/año
+DEFAULT_DAILY_PRICE_COMERC = DEFAULT_PRICE_COMERC / 365
+DEFAULT_TAX_ELECTR = 1.0511300560 # multiplicative
+DEFAULT_TAX_IVA = 1.21 # multiplicative
 
 DEFAULT_SHORT_INTERVAL = timedelta(minutes=10)
 DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
@@ -39,6 +51,7 @@ class EdsHelper():
     Cycles = []
     Meter = {}
     Maximeter = {}
+    PVPC = {}
 
     def __init__(self, user, password, cups=None, short_interval=None, long_interval=None):
         self._eds = EdsConnector(user, password)
@@ -85,6 +98,8 @@ class EdsHelper():
             self._busy = False
 
     async def async_update (self, cups=None):
+        #asyncio.get_event_loop().run_in_executor(None, self.update_pvpc_prices)
+        await self._get_pvpc_prices()
         self._loop.run_in_executor(None, self.update, cups)
 
     def _fetch_all (self):
@@ -121,9 +136,9 @@ class EdsHelper():
             except Exception as e:
                 _LOGGER.warning(e)
             self._last_long_update = datetime.now()
-            
-        # Fetch meter data
+
         if self._last_short_update is None or (datetime.now() - self._last_short_update) > self._short_interval:
+            # Fetch meter data
             try:
                 meter = self._eds.get_meter(self.Supply['CUPS_Id'])
                 if meter is not None:
@@ -134,7 +149,31 @@ class EdsHelper():
                         self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self._meter_yesterday
             except Exception as e:
                 _LOGGER.warning(e)
+            # Update prices if needed
+            try:
+                if self.PVPC is not None and self.PVPC['ready'] == False:
+                    self.PVPC['df'] = pd.DataFrame([{'datetime': x.astimezone(tz.timezone('Europe/Madrid')),'date': x.astimezone(tz.timezone('Europe/Madrid')).strftime("%d-%m-%Y"), 'hour': f"{x.astimezone(tz.timezone('Europe/Madrid')).strftime('%H')} - {(x.astimezone(tz.timezone('Europe/Madrid')).hour + 1):02d} h", 'price': self.PVPC['raw'][x]} for x in self.PVPC['raw']])
+                    self.PVPC['ready'] = True
+                    for cycle in self.Cycles:
+                        if cycle['DateStart'] >= datetime(2021, 6, 1):
+                            cycle['df'] = cycle['df'].merge(self.PVPC['df'], how='left', left_on=['date', 'hour'], right_on=['date', 'hour'])
+                            cycle['df']['energy_price'] = cycle['df']['value'] * cycle['df']['price']
+                            cycle['Energy_Cost'] = round(cycle['df']['energy_price'].sum(), 2)
+                            cycle['Energy_AvgCost'] = round(cycle['Energy_Cost'] / cycle['Energy'], 2)
+                            # TODO update with P1 and P2 power prices
+                            cycle['Power_Cost'] = round((self.Supply['PowerLimit'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.Supply['PowerLimit'] * DEFAULT_DAILY_PRICE_P2) * cycle['DateDelta'], 2)
+                            cycle['Bill'] = round(((cycle['Energy_Cost'] + cycle['Power_Cost']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * cycle['DateDelta'] / 30)) * DEFAULT_TAX_IVA, 2)
+                            #print(tabulate(cycle['df'], headers = 'keys', tablefmt = 'psql'))
+            except Exception as e:
+                _LOGGER.warning(e)
             self._last_short_update = datetime.now()
+
+    async def _get_pvpc_prices (self):
+        pvpc_handler = PVPCData(tariff=TARIFFS[0], local_timezone='Europe/Madrid')
+        start = datetime.today() - timedelta(days=60)
+        end = datetime.today() + timedelta(days=1)
+        self.PVPC['raw'] = await pvpc_handler.async_download_prices_for_range(start, end)
+        self.PVPC['ready'] = False
 
     def _rawmeter2data (self, meter):
         Meter = {}
@@ -169,8 +208,6 @@ class EdsHelper():
             Period['Energy_P1'] = round(Period['df']['value'].loc[(Period['df']['hour'].isin(LIST_P1)) & (~Period['df']['weekday'].isin(DAYS_P3))].sum(), 2)
             Period['Energy_P2'] = round(Period['df']['value'].loc[(Period['df']['hour'].isin(LIST_P2)) & (~Period['df']['weekday'].isin(DAYS_P3))].sum(), 2)
             Period['Energy_P3'] = round(Period['Energy'] - Period['Energy_P1'] - Period['Energy_P2'], 2)
-            #print(tabulate(Period['df'], headers = 'keys', tablefmt = 'psql'))
-            #Period['Detail'] = data
         return Period
 
     def _rawmaximeter2data (self, maximeter):
@@ -207,7 +244,6 @@ class EdsHelper():
                 Day['Energy_P2'] = round(tempdf['value'].loc[(tempdf['hour'].isin(LIST_P2)) & (~tempdf['weekday'].isin(DAYS_P3))].sum(), 2)
                 Day['Energy_P3'] = Day['Energy'] - Day['Energy_P1'] - Day['Energy_P2']
                 break
-
         return Day
 
     def __str__ (self):
@@ -226,8 +262,14 @@ class EdsHelper():
             \r* Ayer detalle (kWh): (P1: {self.Yesterday.get('Energy_P1', '-')} | P2: {self.Yesterday.get('Energy_P2', '-')} | P3: {self.Yesterday.get('Energy_P3', '-')})
             \r* Ciclo anterior (kWh): {self.Cycles[1].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[1].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[1].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
             \r* Ciclo anterior detalle (kWh): (P1: {self.Cycles[1].get('Energy_P1', '-')  if len(self.Cycles) > 1 else None} | P2: {self.Cycles[1].get('Energy_P2', '-')  if len(self.Cycles) > 1 else None} | P3: {self.Cycles[1].get('Energy_P3', '-')  if len(self.Cycles) > 1 else None})
+            \r* Ciclo anterior - coste energía (sin IVA) (€): {self.Cycles[1].get('Energy_Cost', '-')  if len(self.Cycles) > 1 else None}
+            \r* Ciclo actual - coste potencia (sin IVA) (€): {self.Cycles[1].get('Power_Cost', '-')  if len(self.Cycles) > 1 else None}
+            \r* Ciclo actual - factura (con IVA) (€): {self.Cycles[1].get('Bill', '-')  if len(self.Cycles) > 1 else None}            
             \r* Ciclo actual (kWh): {self.Cycles[0].get('Energy', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[0].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[0].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
             \r* Ciclo actual detalle (kWh): (P1: {self.Cycles[0].get('Energy_P1', '-')  if len(self.Cycles) > 1 else None} | P2: {self.Cycles[0].get('Energy_P2', '-')  if len(self.Cycles) > 1 else None} | P3: {self.Cycles[0].get('Energy_P3', '-')  if len(self.Cycles) > 1 else None})
+            \r* Ciclo actual - coste energía (sin IVA) (€): {self.Cycles[0].get('Energy_Cost', '-')  if len(self.Cycles) > 1 else None}
+            \r* Ciclo actual - coste potencia (sin IVA) (€): {self.Cycles[0].get('Power_Cost', '-')  if len(self.Cycles) > 1 else None}
+            \r* Ciclo actual - factura (con IVA) (€): {self.Cycles[0].get('Bill', '-')  if len(self.Cycles) > 1 else None}
             \r* Potencia máxima (kW): {self.Maximeter.get('Max', '-')} el {self.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime("%d/%m/%Y")}
             \r* Potencia media (kW): {self.Maximeter.get('Average', '-')}
             \r* Potencia percentil (99 | 95 | 90) (kW): {self.Maximeter.get('Percentile99', '-')} | {self.Maximeter.get('Percentile95', '-')} | {self.Maximeter.get('Percentile90', '-')} 

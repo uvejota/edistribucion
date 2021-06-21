@@ -115,7 +115,7 @@ class EdsConnector():
                 pickle.dump(self._session.cookies, f)
                 _LOGGER.debug('Saving session')
         except FileNotFoundError:
-            _LOGGER.warning('Cannot save session file')
+            _LOGGER.debug ('Cannot save session file')
         try:
             t = {}
             t['token'] = self._token
@@ -126,7 +126,7 @@ class EdsConnector():
                 json.dump(t, f, default=serialize_date)
             _LOGGER.debug('Saving access to file')
         except FileNotFoundError:
-            _LOGGER.warning('Cannot save access file')
+            _LOGGER.debug ('Cannot save access file')
         
     def login(self):
         if (not self._check_tokens()):
