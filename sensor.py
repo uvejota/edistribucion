@@ -23,7 +23,7 @@ CONF_EXPLODE_SENSORS = 'explode_sensors'
 
 SENSOR_TYPES = {
     "cups": ("CUPS", None),
-    "cont": ("Contador", ENERGY_KILO_WATT_HOUR),
+    "energy_total": ("Contador", ENERGY_KILO_WATT_HOUR),
     "icp_status": ("ICP", None),
     "power_load": ("Carga actual", PERCENTAGE),
     "power_limit_p1": ("Límite (P1)", POWER_KILO_WATT),

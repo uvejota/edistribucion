@@ -225,14 +225,14 @@ class EdsHelper():
         try:
             meter = self._eds.get_meter(self._cups_id)
             if meter is not None:
-                self.attributes['cont'] = int(str(meter.get('totalizador', None)).replace(".", ""))
+                self.attributes['energy_total'] = int(str(meter.get('totalizador', None)).replace(".", ""))
                 self.attributes['icp_status'] = meter.get('estadoICP', None)
                 self.attributes['power_load'] = float(meter.get('percent', None).replace("%","").replace(",", "."))
                 self.attributes['power'] = meter.get('potenciaActual', None)
                 if self._should_reset_day or self._meter_yesterday is None:
-                    self._meter_yesterday = self.attributes['cont']
+                    self._meter_yesterday = self.attributes['energy_total']
                 if self._meter_yesterday is not None:
-                    self.attributes['energy_today'] = self.attributes['cont'] - self._meter_yesterday
+                    self.attributes['energy_today'] = self.attributes['energy_total'] - self._meter_yesterday
                 self._last_meter_update = datetime.now()
         except Exception as e:
             _LOGGER.exception(e)

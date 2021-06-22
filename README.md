@@ -33,9 +33,10 @@ sensor:
     short_interval: 5 # optional, number of minutes between meter updates (those that contain immediate lectures from your counter (e.g., power, load))
     long_interval: 60 # optional, number of minutes between cycle updates (those that contain historical lectures (e.g., maximeter, cycles))
     explode_sensors: # optional, to define extra sensors (separated from sensor.edistribucion) with the names and content specified below
-      - cont # total counter energy in kWh
+      - energy_total # total counter energy in kWh
       - power_load # power load in %
-      - power_limit # power limit in kWh
+      - power_limit_p1 # power limit (P1) in kWh
+      - power_limit_p2 # power limit (P2) in kWh
       - power # immediate power in kWh
       - energy_today # energy estimation for today in kWh
       - energy_yesterday # energy consumed yesterday in kWh (it may require a few hours to reflect the accumulated energy)
@@ -48,14 +49,15 @@ sensor:
       - cycle_current_p3 # same for p3 phase
       - cycle_current_daily # daily average
       - cycle_current_days # days in the cycle
+      - cycle_current_pvpc # pvpc cost simulation
       - cycle_last # energy estimation for the last billing cycle in kWh (it may require a few hours to reflect the accumulated energy)
       - cycle_last_p1 # same for p1 phase
       - cycle_last_p2 # same for p2 phase
       - cycle_last_p3 # same for p3 phase
       - cycle_last_daily # daily average
       - cycle_last_days # days in the cycle
+      - cycle_last_pvpc # pvpc cost simulation (only w/ 2.0TD; no data before 1-jun-2021 will be calculated)
       - power_peak # highest power peak in kW during the last 12 months
-      - power_peak_date # the date
       - power_peak_mean # mean of monthly power peaks in kW during the last 12 months
       - power_peak_tile90 # percentile 90 of monthly power peaks in kW during the last 12 months
 ```
