@@ -26,7 +26,8 @@ SENSOR_TYPES = {
     "cont": ("Contador", ENERGY_KILO_WATT_HOUR),
     "icp_status": ("ICP", None),
     "power_load": ("Carga actual", PERCENTAGE),
-    "power_limit": ("Límite", POWER_KILO_WATT),
+    "power_limit_p1": ("Límite (P1)", POWER_KILO_WATT),
+    "power_limit_p2": ("Límite (P2)", POWER_KILO_WATT),
     "power": ("Potencia", POWER_KILO_WATT),
     "energy_today": ("Energía hoy", ENERGY_KILO_WATT_HOUR),
     "energy_yesterday": ("Energía ayer", ENERGY_KILO_WATT_HOUR),
@@ -139,63 +140,7 @@ class EdsSensor(Entity):
         self._state = self._get_attr_value(self._statelabel)
 
     def _get_attr_value (self, attr):
-        if 'cups' == attr:
-            return self._helper.Supply.get('CUPS', None)
-        elif 'cont' == attr:
-            return self._helper.Meter.get('EnergyMeter', None)
-        elif 'icp_status' == attr:
-            return self._helper.Meter.get('ICP', None)
-        elif 'power_load' == attr:
-            return self._helper.Meter.get('Load', None)
-        elif 'power_limit' == attr:
-            return self._helper.Supply.get('PowerLimit', None)
-        elif 'power' == attr:
-            return self._helper.Meter.get('Power', None)
-        elif 'energy_today' == attr:
-            return self._helper.Meter.get('EnergyToday', None)
-        elif 'energy_yesterday' == attr:
-            return self._helper.Yesterday.get('Energy', None)
-        elif 'energy_yesterday_p1' == attr:
-            return self._helper.Yesterday.get('Energy_P1', None)
-        elif 'energy_yesterday_p2' == attr:
-            return self._helper.Yesterday.get('Energy_P2', None)
-        elif 'energy_yesterday_p3' == attr:
-            return self._helper.Yesterday.get('Energy_P3', None)
-        elif 'cycle_current' == attr:
-            return self._helper.Cycles[0].get('Energy', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_daily' == attr:
-            return self._helper.Cycles[0].get('EnergyDaily', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_days' == attr:
-            return self._helper.Cycles[0].get('DateDelta', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_p1' == attr:
-            return self._helper.Cycles[0].get('Energy_P1', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_p2' == attr:
-            return self._helper.Cycles[0].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_p3' == attr:
-            return self._helper.Cycles[0].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_current_pvpc' == attr:
-            return self._helper.Cycles[0].get('Bill', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last' == attr:
-            return self._helper.Cycles[1].get('Energy', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_daily' == attr:
-            return self._helper.Cycles[1].get('EnergyDaily', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_days' == attr:
-            return self._helper.Cycles[1].get('DateDelta', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_p1' == attr:
-            return self._helper.Cycles[1].get('Energy_P1', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_p2' == attr:
-            return self._helper.Cycles[1].get('Energy_P2', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_p3' == attr:
-            return self._helper.Cycles[1].get('Energy_P3', None) if len(self._helper.Cycles) > 1 else None
-        elif 'cycle_last_pvpc' == attr:
-            return self._helper.Cycles[1].get('Bill', None) if len(self._helper.Cycles) > 1 else None
-        elif 'power_peak' == attr:
-            return self._helper.Maximeter.get('Max', None)
-        elif 'power_peak_date' == attr:
-            return self._helper.Maximeter.get('DateMax', None).strftime('%d/%m/%Y') if self._helper.Maximeter.get('DateMax', None) is not None else None
-        elif 'power_peak_mean' == attr:
-            return self._helper.Maximeter.get('Average', None)
-        elif 'power_peak_tile90' == attr:
-            return self._helper.Maximeter.get('Percentile90', None)
-        else:
-            _LOGGER.warning ("unrecognised attribute with label " + str(attr))
+        try:
+            return self._helper.attributes[attr]
+        except Exception:
+            return None

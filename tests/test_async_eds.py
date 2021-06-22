@@ -20,9 +20,9 @@ except:
 eHelper = EdsHelper(USER, PASSWORD, short_interval=timedelta(seconds=1), long_interval=timedelta(seconds=5))
 asyncio.get_event_loop().run_until_complete(eHelper.async_update())
 print(eHelper)
+'''
 time.sleep(45)
 print(eHelper)
-'''
 time.sleep(2)
 eHelper.update()
 print(eHelper)

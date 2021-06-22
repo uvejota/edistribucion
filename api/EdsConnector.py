@@ -201,6 +201,7 @@ class EdsConnector():
             r = self._command(command, post=data)
         except Exception as e:
             _LOGGER.warn (e)
+            r = {}
         return r
 
     def get_login_info(self):
@@ -262,7 +263,7 @@ class EdsConnector():
     def get_atr_detail(self, atr):
         msg = '{"actions":[{"id":"62;a","descriptor":"apex://WP_ContractATRDetail_CTRL/ACTION$getATRDetail","callingDescriptor":"markup://c:WP_SuppliesATRDetailForm","params":{"atrId":"'+atr+'"}}]}',
         cmd = 'other.WP_ContractATRDetail_CTRL.getATRDetail=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
     
     def get_solicitud_atr_detail(self, sol):
         msg = '{"actions":[{"id":"56;a","descriptor":"apex://WP_SolicitudATRDetail_CTRL/ACTION$getSolicitudATRDetail","callingDescriptor":"markup://c:WP_ATR_Requests_Detail_Form","params":{"solId":"'+sol+'"}}]}',
@@ -272,37 +273,37 @@ class EdsConnector():
     def get_cycle_list(self, cont):
         msg = '{"actions":[{"id":"1190;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getInfo","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"contId":"'+cont+'"},"longRunning":true}]}',
         cmd = 'other.WP_Measure_v3_CTRL.getInfo=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
         
     def get_cycle_curve(self, cont, range, value):
         msg = '{"actions":[{"id":"1295;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPoints","callingDescriptor":"markup://c:WP_Measure_Detail_v4","params":{"cupsId":"'+cont+'","dateRange":"'+range+'","cfactura":"'+value+'"},"longRunning":true}]}',
         cmd = 'other.WP_Measure_v3_CTRL.getChartPoints=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
 
     def get_day_curve (self, cont, date_start):
         msg = '{"actions":[{"id":"751;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"1","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
         cmd = 'other.WP_Measure_v3_CTRL.getChartPointsByRange=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
     
     def get_week_curve (self, cont, date_start):
         msg = '{"actions":[{"id":"1497;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"2","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
         cmd = 'other.WP_Measure_v3_CTRL.getChartPointsByRange=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
 
     def get_month_curve (self, cont, date_start):
         msg = '{"actions":[{"id":"1461;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_By_Dates_v3","params":{"contId":"'+cont+'","type":"3","startDate":"'+date_start+'"},"version":null,"longRunning":true}]}',
         cmd = 'other.WP_Measure_v3_CTRL.getChartPointsByRange=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
 
     def get_custom_curve (self, cont, date_start, date_end):
         msg = '{"actions":[{"id":"981;a","descriptor":"apex://WP_Measure_v3_CTRL/ACTION$getChartPointsByRange","callingDescriptor":"markup://c:WP_Measure_Detail_Filter_Advanced_v3","params":{"contId":"'+cont+'","type":"4","startDate":"'+date_start+'","endDate":"'+date_end+'"},"version":null,"longRunning":true}]}'
         cmd = 'other.WP_Measure_v3_CTRL.getChartPointsByRange=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
         
     def get_maximeter (self, cups, date_start, date_end):
         msg = '{"actions":[{"id":"688;a","descriptor":"apex://WP_MaximeterHistogram_CTRL/ACTION$getHistogramPoints","callingDescriptor":"markup://c:WP_MaximeterHistogramDetail","params":{"mapParams":{"startDate":"'+date_start+'","endDate":"'+date_end+'","id":"'+cups+'","sIdentificador":"'+self._identities['account_id']+'"}}}]}',
         cmd = 'other.WP_MaximeterHistogram_CTRL.getHistogramPoints=1'
-        return self._safe_command (cmd, msg)['data']
+        return self._safe_command (cmd, msg).get('data', None)
     
     def reconnect_ICP(self, cups):
         msg = '{"actions":[{"id":"261;a","descriptor":"apex://WP_ContadorICP_F2_CTRL/ACTION$reconectarICP","callingDescriptor":"markup://c:WP_Reconnect_Detail_F2","params":{"cupsId":"'+cups+'"}}]}',
