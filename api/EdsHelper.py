@@ -1,207 +1,263 @@
 import logging
+
 from .EdsConnector import EdsConnector
 from datetime import datetime, timedelta
 #import calendar
-import numpy as np
+import pandas as pd
+import asyncio
+from aiopvpc import PVPCData, TARIFFS
+import pytz as tz
+import tzlocal
+
+LIST_P1 = ['10 - 11 h', '11 - 12 h', '12 - 13 h', '13 - 14 h', '18 - 19 h', '19 - 20 h', '20 - 21 h', '21 - 22 h']
+LIST_P2 = ['08 - 09 h', '09 - 10 h', '14 - 15 h', '15 - 16 h', '16 - 17 h', '17 - 18 h', '22 - 23 h', '23 - 24 h']
+LIST_P3 = ['00 - 01 h', '01 - 02 h', '02 - 03 h', '03 - 04 h', '04 - 05 h', '05 - 06 h','06 - 07 h', '07 - 08 h']
+
+DAYS_P3 = ['Saturday', 'Sunday']
+
+DEFAULT_PRICE_P1 = 30.67266 # €/kW/year
+DEFAULT_PRICE_P2 = 1.4243591 # €/kW/year
+DEFAULT_DAILY_PRICE_P1 = DEFAULT_PRICE_P1 / 365
+DEFAULT_DAILY_PRICE_P2 = DEFAULT_PRICE_P2 / 365
+DEFAULT_PRICE_CONT = 0.81 # €/month
+DEFAULT_PRICE_COMERC = 3.113 # €/kW/año
+DEFAULT_DAILY_PRICE_COMERC = DEFAULT_PRICE_COMERC / 365
+DEFAULT_TAX_ELECTR = 1.0511300560 # multiplicative
+DEFAULT_TAX_IVA = 1.21 # multiplicative
+
+DEFAULT_SHORT_INTERVAL = timedelta(minutes=10)
+DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
 
 _LOGGER = logging.getLogger(__name__)
 
 class EdsHelper():
-    __eds = None
+    _eds = None
     # raw data
-    __username = None
-    __password = None
-    __last_short_update = None
-    __last_long_update = None
-    __short_interval = None
-    __long_interval = None
+    _username = None
+    _password = None
+    _last_short_update = None
+    _last_long_update = None
+    _short_interval = None
+    _long_interval = None
+    _cycles = None
 
-    __meter_yesterday = None
+    _meter_yesterday = None
 
-    Supply = {}
-    Today = {}
-    Yesterday = {}
-    Cycles = []
-    Meter = {}
-    Maximeter = {}
+    _last_meter_update = None
+    _last_cycles_update = None
+    _last_energy_update = None
+    _last_maximeter_update = None
+    _last_pvpc_update = None
 
-    def __init__(self, user, password, cups=None, short_interval=timedelta(minutes=10), long_interval=timedelta(minutes=60)):
-        self.__eds = EdsConnector(user, password)
-        self.__username = user
-        self.__password = password
-        self.__short_interval = short_interval
-        self.__long_interval = long_interval
-        self.__last_short_update = None
-        self.__last_long_update = None
+    _busy = False
+    _should_reset_day = None
+
+    _pvpc_raw = None
+    _cups_id = None
+    _cont_id = None
+
+    # dataframes
+    _power_df = None
+    _energy_df = None
+
+    # attributes
+    attributes = {}
+
+    _pvpc_raw = None
+    _pvpc_handler = None
+
+    def __init__(self, user, password, cups=None, short_interval=None, long_interval=None):
+        self._eds = EdsConnector(user, password)
+        self._username = user
+        self._password = password
+        self._short_interval = short_interval if short_interval is not None else DEFAULT_SHORT_INTERVAL
+        self._long_interval = long_interval if long_interval is not None else DEFAULT_LONG_INTERVAL
+        self._last_short_update = None
+        self._last_long_update = None
+        self._loop = asyncio.get_event_loop()
+        self._pvpc_handler = PVPCData(tariff=TARIFFS[0], local_timezone='Europe/Madrid')
 
     # To load CUPS into the helper
-    def set_cups (self, candidate=None):
-        self.__eds.login()
-        all_cups = self.__eds.get_cups_list()
+    def _set_cups (self, candidate=None):
+        self._eds.login()
+        all_cups = self._eds.get_cups_list()
         _LOGGER.debug ("CUPS:" + str(all_cups))
         found = False
         for c in all_cups:
             if candidate is None or c.get('CUPS', None) == candidate:
-                self.Supply['CUPS'] = c.get('CUPS', None)
-                self.Supply['CUPS_Id'] = c.get('CUPS_Id', None)
-                self.Supply['CONT_Id'] = c.get('Id', None)
-                self.Supply['Active'] = c.get('Active', None)
-                self.Supply['PowerLimit'] = c.get('Power', None)
+                self.attributes['cups'] = c.get('CUPS', None)
+                self._cups_id = c.get('CUPS_Id', None)
+                self._cont_id = c.get('Id', None)
+                generic_power_limit = c.get('Power', None)
+                self.attributes['power_limit_p1'] = generic_power_limit
+                self.attributes['power_limit_p2'] = generic_power_limit
                 found = True
+                try:
+                    for atr in self._eds.get_cups_detail (self._cups_id).get('lstATR', None):
+                        if atr.get('Status', None) == 'EN VIGOR':
+                            attr_id = atr.get ('Id', None)
+                            attr = self._eds.get_atr_detail (attr_id)
+                            for item in attr:
+                                if 'title' in item:
+                                    if item['title'] == 'Potencia contratada 1 (kW)':
+                                        self.attributes['power_limit_p1'] = float(item['value'].replace(",", "."))
+                                    elif item['title'] == 'Potencia contratada 2 (kW)':
+                                        self.attributes['power_limit_p2'] = float(item['value'].replace(",", "."))
+                except Exception as e:
+                    _LOGGER.warning (e + f"; assuming {generic_power_limit} as P1 and P2 power limits")
+                    self.attributes['power_limit_p1'] = generic_power_limit
+                    self.attributes['power_limit_p2'] = generic_power_limit
                 break
         else:
             found = False
         return found
     
-    def update (self):
-        # updating cups or login
-        if self.Supply.get('CUPS', None) is None:
-            self.set_cups()
-        else:
-            self.__eds.login()
-
-        # updating last and current bills
-        self.__fetch_all ()
-
-    def __fetch_all (self):
-        should_reset_day = False
-        if self.__last_long_update is None or (datetime.now() - self.__last_long_update) > self.__long_interval:
-            # or (datetime.now() - self.__last_update) > self.__long_interval:
-            # Fetch cycles data
+    def update (self, cups=None):
+        if not self._busy:
+            self._busy = True
             try:
-                cycles = self.__eds.get_cycle_list(self.Supply['CONT_Id'])
-                d0 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y')
-                d1 = datetime.strptime(cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
-                d2 = d1 + timedelta(days=1)
-                d3 = datetime.today()
-                should_reset_day = self.Cycles[0]['DateStart'] != d2 if len(self.Cycles) > 0 else False
-                if len(self.Cycles) < 2 or should_reset_day:
-                    current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-                    last = self.__eds.get_cycle_curve(self.Supply['CONT_Id'], cycles['lstCycles'][0]['label'], cycles['lstCycles'][0]['value'])
-                    self.Cycles = []
-                    for period in [current, last]:
-                        Period = self.__rawcycle2data (period)
-                        self.Cycles.append(Period)
-                    # Fetch maximeter data
-                    try:
-                        d0 = datetime.today()-timedelta(days=395)
-                        d1 = datetime.today()
-                        maximeter = self.__eds.get_maximeter (self.Supply['CUPS_Id'], d0.strftime("%m/%Y"), d1.strftime("%m/%Y"))
-                        if maximeter is not None:
-                            self.Maximeter = self.__rawmaximeter2data (maximeter)
-                    except Exception as e:
-                        _LOGGER.warning(e)
+                # login in edistribucion
+                if self._cups_id is None or self._cups_id != cups:
+                    self._set_cups(cups)
                 else:
-                    current = self.__eds.get_custom_curve(self.Supply['CONT_Id'], d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-                    self.Cycles[0] = self.__rawcycle2data (current)
-                self.Today = self.__get_day(datetime.today())
-                self.Yesterday = self.__get_day(datetime.today()-timedelta(days=1))
+                    self._eds.login()
+                # updating historical data and calculations
+                if self._last_cycles_update is None or (datetime.now() - self._last_cycles_update) > self._long_interval:
+                    self._update_cycles ()
+                if self._last_energy_update is None or (datetime.now() - self._last_energy_update) > self._long_interval:
+                    self._update_energy ()
+                if self._last_maximeter_update is None or (datetime.now() - self._last_maximeter_update) > self._long_interval:
+                    self._update_maximeter ()
+                if self._last_pvpc_update is None or (datetime.now() - self._last_pvpc_update) > self._long_interval:
+                    self._update_pvpc_prices ()
+                # Fetch meter data
+                if self._last_meter_update is None or (datetime.now() - self._last_meter_update) > self._short_interval:
+                    self._update_meter ()
             except Exception as e:
-                _LOGGER.warning(e)
-            self.__last_long_update = datetime.now()
+                _LOGGER.exception (e)
+            self._busy = False
+
+    async def async_update (self, cups=None):
+        # update pvpc prices
+        if self._last_pvpc_update is None or (datetime.now().day - self._last_pvpc_update.day) > 1:
+            self._pvpc_raw = await self._pvpc_handler.async_download_prices_for_range(datetime.today() - timedelta(days=60), datetime.today())
+        # update the sensor
+        self._loop.run_in_executor(None, self.update, cups)
+
+    def _update_cycles (self):
+        try:
+            self._cycles = self._eds.get_cycle_list(self._cont_id)
+            self._last_cycles_update = datetime.now()
+        except Exception as e:
+            _LOGGER.exception (e)
+
+    def _update_energy (self):
+        try:
+            d0 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y') + timedelta(days=1)
+            d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
+            d2 = d1 + timedelta(days=1)
+            d3 = datetime.today()
+            res = self._eds.get_custom_curve(self._cont_id, d0.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
+            data = res.get('mapHourlyPoints', None)
+            if data is not None:
+                good_data = []
+                for day in data:
+                    for idx in data[day]:
+                        item={}
+                        item['datetime'] = datetime.strptime(day + "_" + idx['hour'].split(" - ")[0], "%d-%m-%Y_%H")
+                        item['date'] = day
+                        for key in idx:
+                            item[key] = idx[key]
+                        good_data.append(item)
             
-        # Fetch meter data
-        if self.__last_short_update is None or (datetime.now() - self.__last_short_update) > self.__short_interval:
-            try:
-                meter = self.__eds.get_meter(self.Supply['CUPS_Id'])
-                if meter is not None:
-                    self.Meter = self.__rawmeter2data (meter)
-                    if should_reset_day:
-                        self.__meter_yesterday = self.Meter.get('EnergyMeter', None)
-                    if self.__meter_yesterday is not None:
-                        self.Meter["EnergyToday"] = self.Meter['EnergyMeter'] - self.__meter_yesterday
-            except Exception as e:
-                _LOGGER.warning(e)
-            self.__last_short_update = datetime.now()
+                df = pd.DataFrame (good_data)
+                df['datetime'] = pd.to_datetime(df['datetime'])
+                df['weekday'] = df['datetime'].dt.day_name()
+                self._energy_df = df
 
-    def __rawmeter2data (self, meter):
-        Meter = {}
-        Meter['Power'] = meter.get('potenciaActual', None)
-        Meter['ICP'] = meter.get('estadoICP', None)
-        Meter['EnergyMeter'] = int(str(meter.get('totalizador', None)).replace(".", ""))
-        Meter['Load'] = float(meter.get('percent', None).replace("%","").replace(",", "."))
-        Meter['PowerLimit'] = meter.get('potenciaContratada', None)
-        return Meter
+                y_df = df.loc[(pd.to_datetime((d3 - timedelta(days=1))).floor('D') <= df['datetime']) & (df['datetime'] < pd.to_datetime(d3).floor('D'))]
+                self.attributes['energy_yesterday'] = round(y_df['value'].sum(), 2)
+                self.attributes['energy_yesterday_p1'] = round(y_df['value'].loc[(y_df['hour'].isin(LIST_P1)) & (~y_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['energy_yesterday_p2'] = round(y_df['value'].loc[(y_df['hour'].isin(LIST_P2)) & (~y_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['energy_yesterday_p3'] = round(self.attributes['energy_yesterday'] - self.attributes['energy_yesterday_p1'] - self.attributes['energy_yesterday_p2'], 2)
 
-    def __rawcycle2data (self, period):
-        Period = {}
-        Period['DateStart'] = datetime.fromisoformat(period.get('startDt','1990-01-01T22:00:00.000Z').split("T")[0]) + timedelta(days=1)
-        Period['DateEnd'] = datetime.fromisoformat(period.get('endDt','1990-01-01T22:00:00.000Z').split("T")[0]) + timedelta(days=1)
-        Period['DateDelta'] = (Period['DateEnd'] - Period['DateStart']).days
-        Period['EnergyMax'] = float(period.get('maxPerMonth', None))
-        Period['EnergySum'] = float(period.get('totalValue', None).replace(",","."))
-        if Period['EnergySum'] is not None and Period['DateDelta'] > 0:
-            Period['EnergyDaily'] = round(Period['EnergySum'] / Period['DateDelta'], 2)
-        Period['Detail'] = period.get('mapHourlyPoints', None)
-        return Period
+                cc_df = df.loc[(pd.to_datetime(d2).floor('D') <= df['datetime'])]
+                self.attributes['cycle_current'] = round(cc_df['value'].sum(), 2)
+                self.attributes['cycle_current_days'] = int(cc_df['value'].count() / 24)
+                self.attributes['cycle_current_daily'] = round(self.attributes['cycle_current'] / (cc_df['value'].count() / 24), 2)
+                self.attributes['cycle_current_p1'] = round(cc_df['value'].loc[(cc_df['hour'].isin(LIST_P1)) & (~cc_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['cycle_current_p2'] = round(cc_df['value'].loc[(cc_df['hour'].isin(LIST_P2)) & (~cc_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['cycle_current_p3'] = round(self.attributes['cycle_current'] - self.attributes['cycle_current_p1'] - self.attributes['cycle_current_p2'], 2)
 
-    def __rawmaximeter2data (self, maximeter):
-        Maximeter = {}
-        Maximeter['Max'] = 0
-        Maximeter['DateMax'] = None
-        Maximeter['Average'] = 0
-        Maximeter['Percentile99'] = 0
-        Maximeter['Percentile95'] = 0
-        Maximeter['Percentile90'] = 0
-        Maximeter['Detail'] = maximeter.get('lstData', None)
-        all_values = []
-        count = 0
-        for m in Maximeter['Detail']:
-            if m['value'] > 0:
-                all_values.append(m['value'])
-                Maximeter['Average'] = Maximeter['Average'] + m['value']
-                count = count + 1
-                if m['value'] > Maximeter['Max']:
-                    Maximeter['Max'] = m['value']
-                    Maximeter['DateMax'] = datetime.strptime(m['date'] + "_" + m['hour'], '%d-%m-%Y_%H:%M')
-        if count > 0:
-            Maximeter['Average'] = round(Maximeter['Average'] / count, 2)
-        Maximeter['Percentile99'] = round(np.percentile(np.array(all_values), 99), 2)
-        Maximeter['Percentile95'] = round(np.percentile(np.array(all_values), 95), 2)
-        Maximeter['Percentile90'] = round(np.percentile(np.array(all_values), 90), 2)
-        return Maximeter
+                cl_df = df.loc[(df['datetime'] < pd.to_datetime(d2).floor('D'))]
+                self.attributes['cycle_last'] = round(cl_df['value'].sum(), 2)
+                self.attributes['cycle_last_days'] = round(cl_df['value'].count() / 24)
+                self.attributes['cycle_last_daily'] = round(self.attributes['cycle_last'] / self.attributes['cycle_last_days'], 2)
+                self.attributes['cycle_last_p1'] = round(cl_df['value'].loc[(cl_df['hour'].isin(LIST_P1)) & (~cl_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['cycle_last_p2'] = round(cl_df['value'].loc[(cl_df['hour'].isin(LIST_P2)) & (~cl_df['weekday'].isin(DAYS_P3))].sum(), 2)
+                self.attributes['cycle_last_p3'] = round(self.attributes['cycle_last'] - self.attributes['cycle_last_p1'] - self.attributes['cycle_last_p2'], 2)
 
-    def __get_day (self, date):
-        date_str = date.strftime('%d-%m-%Y')
-        '''
-        start_summer = calendar.monthcalendar(date_str.year, 3)
-        end_summer = calendar.monthcalendar(date_str.year, 10)
-        start_summer = datetime(date_str.year, 3, max(start_summer[-1][calendar.SUNDAY], start_summer[-2][calendar.SUNDAY])) 
-        end_summer = datetime(date_str.year, 10, max(end_summer[-1][calendar.SUNDAY], end_summer[-2][calendar.SUNDAY])) 
-        is_summer = True if start_summer < datetime.today() < end_summer else False
-        '''
-        Day = {}
-        Day['Energy'] = 0
-        Day['P1'] = 0
-        Day['P2'] = 0
-        Day['P3'] = 0
-        for c in self.Cycles:
-            if date_str in c['Detail']:
-                Day['Energy'] = round(np.sum( [ x['value'] for x in c['Detail'][date_str] ] ), 2)
-                Day['P1'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (10 <= ind < 14) or (18 <= ind < 22) ] ), 2)
-                Day['P2'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (8 <= ind < 10) or (14 <= ind < 18) or (22 <= ind <= 23) ] ), 2)
-                Day['P3'] = round(np.sum( [ x['value'] for ind, x in enumerate(c['Detail'][date_str]) if (0 <= ind < 8) ] ), 2)
-                break
-        else:
-            Day = None
-        return Day
+                self._last_energy_update = datetime.now()
+        except Exception as e:
+            _LOGGER.exception(e)
+    
+    def _update_maximeter (self):
+        try:
+            d0 = datetime.today()-timedelta(days=395)
+            d1 = datetime.today()
+            maximeter = self._eds.get_maximeter (self._cups_id, d0.strftime("%m/%Y"), d1.strftime("%m/%Y"))
+            if maximeter is not None:
+                df =  pd.DataFrame([x for x in maximeter.get('lstData', None) if x['valid'] == True])
+                self._power_df = df
+                self.attributes['power_peak'] = round(df['value'].max(), 2)
+                idx_max = df['value'].idxmax()
+                self.attributes['power_peak_date'] = df.iloc[idx_max]['date'] + " " + df.iloc[idx_max]['hour']
+                self.attributes['power_peak_mean'] = round(df['value'].mean(), 2)
+                self.attributes['power_peak_tile99'] = round(df['value'].quantile(.99), 2)
+                self.attributes['power_peak_tile95'] = round(df['value'].quantile(.95), 2)
+                self.attributes['power_peak_tile90'] = round(df['value'].quantile(.90), 2)
+
+                self._last_energy_update = datetime.now()
+        except Exception as e:
+            _LOGGER.exception(e)
+
+    def _update_meter (self):
+        try:
+            meter = self._eds.get_meter(self._cups_id)
+            if meter is not None:
+                self.attributes['energy_total'] = int(str(meter.get('totalizador', None)).replace(".", ""))
+                self.attributes['icp_status'] = meter.get('estadoICP', None)
+                self.attributes['power_load'] = float(meter.get('percent', None).replace("%","").replace(",", "."))
+                self.attributes['power'] = meter.get('potenciaActual', None)
+                if self._should_reset_day or self._meter_yesterday is None:
+                    self._meter_yesterday = self.attributes['energy_total']
+                if self._meter_yesterday is not None:
+                    self.attributes['energy_today'] = self.attributes['energy_total'] - self._meter_yesterday
+                self._last_meter_update = datetime.now()
+        except Exception as e:
+            _LOGGER.exception(e)
+
+    def _update_pvpc_prices (self):
+        try:
+            if self._pvpc_raw is not None and self._energy_df is not None:
+                timezone = str(tzlocal.get_localzone())
+                d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
+                d2 = d1 + timedelta(days=1)
+                df = pd.DataFrame([{'date': x.astimezone(tz.timezone(timezone)).strftime("%d-%m-%Y"), 'hour': f"{x.astimezone(tz.timezone(timezone)).strftime('%H')} - {(x.astimezone(tz.timezone(timezone)).hour + 1):02d} h", 'price': self._pvpc_raw[x]} for x in self._pvpc_raw])
+                self._energy_df = self._energy_df.merge(df, how='left', left_on=['date', 'hour'], right_on=['date', 'hour'])
+                self._energy_df['energy_price'] = self._energy_df['value'] * self._energy_df['price']
+                df = self._energy_df          
+                cc_df = df.loc[(pd.to_datetime(d2).floor('D') <= df['datetime'])]
+                self.attributes['cycle_current_energy_term'] = round(cc_df['energy_price'].sum(), 2)
+                self.attributes['cycle_current_power_term'] = round((self.attributes['power_limit_p1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.attributes['power_limit_p2'] * DEFAULT_DAILY_PRICE_P2) * self.attributes['cycle_current_days'], 2)
+                self.attributes['cycle_current_pvpc'] = round(((self.attributes['cycle_current_energy_term'] + self.attributes['cycle_current_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_current_days'] / 30)) * DEFAULT_TAX_IVA, 2)
+                cl_df = df.loc[(df['datetime'] < pd.to_datetime(d2).floor('D'))]
+                self.attributes['cycle_current_energy_term'] = round(cl_df['energy_price'].sum(), 2)
+                self.attributes['cycle_current_power_term'] = round((self.attributes['power_limit_p1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.attributes['power_limit_p2'] * DEFAULT_DAILY_PRICE_P2) * self.attributes['cycle_current_days'], 2)
+                self.attributes['cycle_current_pvpc'] = round(((self.attributes['cycle_current_energy_term'] + self.attributes['cycle_current_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_current_days'] / 30)) * DEFAULT_TAX_IVA, 2)
+                self._last_pvpc_update = datetime.now()
+        except Exception as e:
+            _LOGGER.exception(e)
 
     def __str__ (self):
-        value = \
-            f"""
-            \r* CUPS: {self.Supply.get('CUPS', '-')}
-            \r* Contador (kWh): {self.Meter.get('EnergyMeter', '-')}
-            \r* Contador (kWh): {self.Meter.get('EnergyToday', '-')}
-            \r* Estado ICP: {self.Meter.get('ICP', '-')}
-            \r* Carga actual (%): {self.Meter.get('Load', '-')}
-            \r* Potencia contratada (kW): {self.Supply.get('PowerLimit', '-')}
-            \r* Potencia demandada (kW): {self.Meter.get('Power', '-')}
-            \r* Hoy (kWh): {self.Today.get('Energy', '-')} (P1: {self.Today.get('P1', '-')} | P2: {self.Today.get('P2', '-')} | P3: {self.Today.get('P3', '-')})
-            \r* Ayer (kWh): {self.Yesterday.get('Energy', '-')} (P1: {self.Yesterday.get('P1', '-')} | P2: {self.Yesterday.get('P2', '-')} | P3: {self.Yesterday.get('P3', '-')})
-            \r* Ciclo anterior (kWh): {self.Cycles[1].get('EnergySum', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[1].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[1].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
-            \r* Ciclo actual (kWh): {self.Cycles[0].get('EnergySum', '-') if len(self.Cycles) > 1 else None} en {self.Cycles[0].get('DateDelta', '-') if len(self.Cycles) > 1 else None} días ({self.Cycles[0].get('EnergyDaily', '-') if len(self.Cycles) > 1 else None} kWh/día)
-            \r* Potencia máxima (kW): {self.Maximeter.get('Max', '-')} el {self.Maximeter.get('DateMax', datetime(1990, 1, 1)).strftime("%d/%m/%Y")}
-            \r* Potencia media (kW): {self.Maximeter.get('Average', '-')}
-            \r* Potencia percentil (99 | 95 | 90) (kW): {self.Maximeter.get('Percentile99', '-')} | {self.Maximeter.get('Percentile95', '-')} | {self.Maximeter.get('Percentile90', '-')} 
-            """ 
-        return value
+        return str(self.attributes)
