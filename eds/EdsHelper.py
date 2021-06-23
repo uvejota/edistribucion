@@ -29,6 +29,7 @@ DEFAULT_SHORT_INTERVAL = timedelta(minutes=10)
 DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
 
 _LOGGER = logging.getLogger(__name__)
+logging.getLogger("aiopvpc").setLevel(logging.ERROR)
 
 class EdsHelper():
     _eds = None
@@ -148,6 +149,7 @@ class EdsHelper():
         try:
             self._cycles = self._eds.get_cycle_list(self._cont_id)
             self._last_cycles_update = datetime.now()
+            _LOGGER.debug ('cycles got updated!')
         except Exception as e:
             _LOGGER.exception (e)
 
@@ -198,6 +200,7 @@ class EdsHelper():
                 self.attributes['cycle_last_p3'] = round(self.attributes['cycle_last'] - self.attributes['cycle_last_p1'] - self.attributes['cycle_last_p2'], 2)
 
                 self._last_energy_update = datetime.now()
+                _LOGGER.debug ('energy got updated!')
         except Exception as e:
             _LOGGER.warning (e)
     
@@ -216,8 +219,8 @@ class EdsHelper():
                 self.attributes['power_peak_tile99'] = round(df['value'].quantile(.99), 2)
                 self.attributes['power_peak_tile95'] = round(df['value'].quantile(.95), 2)
                 self.attributes['power_peak_tile90'] = round(df['value'].quantile(.90), 2)
-
-                self._last_energy_update = datetime.now()
+                self._last_maximeter_update = datetime.now()
+                _LOGGER.debug ('maximeter got updated!')
         except Exception as e:
             _LOGGER.warning (e)
 
@@ -234,6 +237,7 @@ class EdsHelper():
                 if self._meter_yesterday is not None:
                     self.attributes['energy_today'] = self.attributes['energy_total'] - self._meter_yesterday
                 self._last_meter_update = datetime.now()
+                _LOGGER.debug ('meter got updated!')
         except Exception as e:
             _LOGGER.warning (e)
 
@@ -244,7 +248,7 @@ class EdsHelper():
                 d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 df = pd.DataFrame([{'date': x.astimezone(tz.timezone(timezone)).strftime("%d-%m-%Y"), 'hour': f"{x.astimezone(tz.timezone(timezone)).strftime('%H')} - {(x.astimezone(tz.timezone(timezone)).hour + 1):02d} h", 'price': self._pvpc_raw[x]} for x in self._pvpc_raw])
-                if 'price' in self._energy_df:
+                if 'price' in self._energy_df.columns:
                     self._energy_df.drop('price', axis=1)
                 self._energy_df = self._energy_df.merge(df, how='left', left_on=['date', 'hour'], right_on=['date', 'hour'])
                 self._energy_df['energy_price'] = self._energy_df['value'].ffill() * self._energy_df['price'].ffill()
@@ -258,6 +262,7 @@ class EdsHelper():
                 self.attributes['cycle_last_power_term'] = round((self.attributes['power_limit_p1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.attributes['power_limit_p2'] * DEFAULT_DAILY_PRICE_P2) * self.attributes['cycle_last_days'], 2)
                 self.attributes['cycle_last_pvpc'] = round(((self.attributes['cycle_last_energy_term'] + self.attributes['cycle_last_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_last_days'] / 30)) * DEFAULT_TAX_IVA, 2)
                 self._last_pvpc_update = datetime.now()
+                _LOGGER.debug ('prices got updated!')
         except Exception as e:
             _LOGGER.warning (e)
 

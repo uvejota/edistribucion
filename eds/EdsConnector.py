@@ -200,7 +200,7 @@ class EdsConnector():
             data['message'] = message
             r = self._command(command, post=data)
         except Exception as e:
-            _LOGGER.warn (e)
+            _LOGGER.info (e)
             r = {}
         return r
 

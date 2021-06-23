@@ -6,7 +6,7 @@ import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 from homeassistant.helpers.event import async_track_point_in_time
-from .api.EdsHelper import EdsHelper
+from .eds.EdsHelper import EdsHelper
 from datetime import datetime, timedelta
 
 # HA variables
