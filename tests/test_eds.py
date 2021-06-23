@@ -6,7 +6,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 sys.path.append('..')
-from api.EdsHelper import EdsHelper
+from eds.EdsHelper import EdsHelper
 
 try:
     USER = sys.argv[1]

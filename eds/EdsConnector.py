@@ -95,11 +95,11 @@ class EdsConnector():
 
         r = self._get_url(dashboard+command, post=post, headers=headers)
         if ('window.location.href' in r.text or 'clientOutOfSync' in r.text):
-                _LOGGER.warning('Redirection received. Aborting command.')
+                _LOGGER.info ('Redirection received. Aborting command.')
         elif ('json' in r.headers['Content-Type']):
             jr = r.json()
             if (jr['actions'][0]['state'] != 'SUCCESS'):
-                _LOGGER.warning('Got an error. Aborting command.')
+                _LOGGER.info ('Got an error. Aborting command.')
                 raise self.EdsException (f'Error processing command: {command}')
             return jr['actions'][0]['returnValue']
         
@@ -180,7 +180,7 @@ class EdsConnector():
             try:
                 jr = json.loads(r.text[ix:ed])
             except Exception:
-                jr = None
+                jr = {}
             if ('token' not in jr):
                 raise self.EdsException ('token not found. Cannot continue')
             self._token = jr['token']
@@ -200,7 +200,7 @@ class EdsConnector():
             data['message'] = message
             r = self._command(command, post=data)
         except Exception as e:
-            _LOGGER.warn (e)
+            _LOGGER.info (e)
             r = {}
         return r
 
