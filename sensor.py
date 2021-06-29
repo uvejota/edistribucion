@@ -51,7 +51,11 @@ SENSOR_TYPES = {
     "power_peak": ("Potencia pico", POWER_KILO_WATT),
     "power_peak_date": ("P. pico (fecha)", None),
     "power_peak_mean": ("P. pico (media)", POWER_KILO_WATT),
-    "power_peak_tile90": ("P. pico (perc. 90)", POWER_KILO_WATT)
+    "power_peak_tile90": ("P. pico (perc. 90)", POWER_KILO_WATT),
+    "meter_last_update": ("Últ. actualización (contador)", None),
+    "energy_last_update": ("Últ. actualización (energía)", None),
+    "maximeter_last_update": ("Últ. actualización (maxímetro)", None),
+    "pvpc_last_update": ("Últ. actualización (PVPC)", None)
 }
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
