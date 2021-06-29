@@ -140,9 +140,9 @@ class EdsHelper():
                     if self._last_meter_update is None or (datetime.now() - self._last_meter_update) > self._short_interval:
                         self._update_meter ()
                         self.attributes['meter_last_update'] = self._last_meter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_meter_update is not None else None
+                    self._last_try = datetime.now()
             except Exception as e:
                 _LOGGER.exception (e)
-            self._last_try = datetime.now()
             self._busy = False
 
     async def async_update (self, cups=None):
