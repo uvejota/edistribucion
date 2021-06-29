@@ -124,21 +124,22 @@ class EdsHelper():
                 else:
                     self._eds.login()
                 # updating historical data and calculations
-                if self._last_cycles_update is None or (datetime.now() - self._last_cycles_update) > self._long_interval:
-                    self._update_cycles ()
-                if self._last_energy_update is None or (datetime.now() - self._last_energy_update) > self._long_interval:
-                    self._update_energy ()
-                    self.attributes['energy_last_update'] = self._last_energy_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_energy_update is not None else None
-                if self._last_maximeter_update is None or (datetime.now() - self._last_maximeter_update) > self._long_interval:
-                    self._update_maximeter ()
-                    self.attributes['maximeter_last_update'] = self._last_maximeter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_maximeter_update is not None else None
-                if self._last_pvpc_update is None or (datetime.now() - self._last_pvpc_update) > self._long_interval:
-                    self._update_pvpc_prices ()
-                    self.attributes['pvpc_last_update'] = self._last_pvpc_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_pvpc_update is not None else None
-                # Fetch meter data
-                if self._last_meter_update is None or (datetime.now() - self._last_meter_update) > self._short_interval:
-                    self._update_meter ()
-                    self.attributes['meter_last_update'] = self._last_meter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_meter_update is not None else None
+                if self._last_try is None or (datetime.now() - self._last_try) > self._short_interval:
+                    if self._last_cycles_update is None or (datetime.now() - self._last_cycles_update) > self._long_interval:
+                        self._update_cycles ()
+                    if self._last_energy_update is None or (datetime.now() - self._last_energy_update) > self._long_interval:
+                        self._update_energy ()
+                        self.attributes['energy_last_update'] = self._last_energy_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_energy_update is not None else None
+                    if self._last_maximeter_update is None or (datetime.now() - self._last_maximeter_update) > self._long_interval:
+                        self._update_maximeter ()
+                        self.attributes['maximeter_last_update'] = self._last_maximeter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_maximeter_update is not None else None
+                    if self._last_pvpc_update is None or (datetime.now() - self._last_pvpc_update) > self._long_interval:
+                        self._update_pvpc_prices ()
+                        self.attributes['pvpc_last_update'] = self._last_pvpc_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_pvpc_update is not None else None
+                    # Fetch meter data
+                    if self._last_meter_update is None or (datetime.now() - self._last_meter_update) > self._short_interval:
+                        self._update_meter ()
+                        self.attributes['meter_last_update'] = self._last_meter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_meter_update is not None else None
             except Exception as e:
                 _LOGGER.exception (e)
             self._last_try = datetime.now()
