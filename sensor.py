@@ -1,13 +1,12 @@
 import logging
 from homeassistant.const import POWER_KILO_WATT, ENERGY_KILO_WATT_HOUR, TIME_DAYS, PERCENTAGE, CURRENCY_EURO
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
-from homeassistant.helpers.event import async_track_point_in_time
 from .eds.EdsHelper import EdsHelper
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 # HA variables
 _LOGGER = logging.getLogger(__name__)
@@ -133,12 +132,14 @@ class EdsSensor(Entity):
 
     async def async_update(self):
         """Fetch new state data for the sensor."""
-        if self._master:
-            await self._helper.async_update(self._cups)
-
+        try:
+            if self._master:
+                await self._helper.async_update(self._cups)
+        except Exception as e:
+            _LOGGER.warning (f"Uncaught exception at sensor.py: {e}")
         # update attrs
         for attr in self._attrs:
-            self._attributes[SENSOR_TYPES[attr][0]] = f"{self._get_attr_value(attr)} {SENSOR_TYPES[attr][1] if SENSOR_TYPES[attr][1] is not None else ''}"
+            self._attributes[SENSOR_TYPES[attr][0]] = f"{self._get_attr_value(attr) if self._get_attr_value(attr) is not None else '-'} {SENSOR_TYPES[attr][1] if SENSOR_TYPES[attr][1] is not None else ''}"
             
         # update state
         self._state = self._get_attr_value(self._statelabel)

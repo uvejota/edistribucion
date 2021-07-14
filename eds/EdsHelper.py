@@ -119,7 +119,7 @@ class EdsHelper():
             self._busy = True
             try:
                 # login in edistribucion
-                if self._cups_id is None or self._cups_id != cups:
+                if self._cups_id is None or (self._cups_id != cups and cups is not None):
                     self._set_cups(cups)
                 else:
                     self._eds.login()
@@ -142,13 +142,18 @@ class EdsHelper():
                         self.attributes['meter_last_update'] = self._last_meter_update.strftime("%d-%m-%Y %H:%M:%S") if self._last_meter_update is not None else None
                     self._last_try = datetime.now()
             except Exception as e:
-                _LOGGER.exception (e)
+                _LOGGER.info (e)
             self._busy = False
 
     async def async_update (self, cups=None):
         # update pvpc prices
         if self._last_pvpc_update is None or (datetime.now().day - self._last_pvpc_update.day) > 0:
-            self._pvpc_raw = await self._pvpc_handler.async_download_prices_for_range(datetime.today() - timedelta(days=60), datetime.today().replace(hour=23,minute=59,second=59,microsecond=59))
+            date = None
+            try:
+                date = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y').replace(hour=0,minute=0,second=0,microsecond=0)
+            except Exception as e:
+                pass
+            self._pvpc_raw = await self._pvpc_handler.async_download_prices_for_range(date if date is not None else (datetime.today() - timedelta(days=365)), datetime.today().replace(hour=23,minute=59,second=59,microsecond=59))
         # update the sensor
         self._loop.run_in_executor(None, self.update, cups)
 
@@ -158,7 +163,7 @@ class EdsHelper():
             self._last_cycles_update = datetime.now()
             _LOGGER.debug ('cycles got updated!')
         except Exception as e:
-            _LOGGER.exception (e)
+            _LOGGER.info (e)
 
     def _update_energy (self):
         try:
@@ -208,7 +213,7 @@ class EdsHelper():
 
                 _LOGGER.debug ('energy got updated!')
         except Exception as e:
-            _LOGGER.warning (e)
+            _LOGGER.info (e)
         self._last_energy_update = datetime.now()
     
     def _update_maximeter (self):
@@ -229,7 +234,7 @@ class EdsHelper():
                 self._last_maximeter_update = datetime.now()
                 _LOGGER.debug ('maximeter got updated!')
         except Exception as e:
-            _LOGGER.warning (e)
+            _LOGGER.info (e)
 
     def _update_meter (self):
         # fetching data
@@ -242,7 +247,7 @@ class EdsHelper():
                 self.attributes['power'] = meter.get('potenciaActual', None)
                 self._last_meter_update = datetime.now()
         except Exception as e:
-            _LOGGER.warning (e)
+            _LOGGER.info (e)
         
         # today's calculus
         try:
@@ -251,12 +256,13 @@ class EdsHelper():
             if 'energy_total' in self.attributes and self.attributes['energy_total'] is not None and self._meter_yesterday is not None:
                 self.attributes['energy_today'] = self.attributes['energy_total'] - self._meter_yesterday
         except Exception as e:
-            _LOGGER.warning (e)
+            _LOGGER.info (e)
 
     def _update_pvpc_prices (self):
         try:
             if self._pvpc_raw is not None and self._energy_df is not None:
                 timezone = str(tzlocal.get_localzone())
+                d0 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[0], '%d/%m/%Y') + timedelta(days=1)
                 d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
                 d2 = d1 + timedelta(days=1)
                 df = pd.DataFrame([{'date': x.astimezone(tz.timezone(timezone)).strftime("%d-%m-%Y"), 'hour': f"{x.astimezone(tz.timezone(timezone)).strftime('%H')} - {(x.astimezone(tz.timezone(timezone)).hour + 1):02d} h", 'price': self._pvpc_raw[x]} for x in self._pvpc_raw])
@@ -266,18 +272,30 @@ class EdsHelper():
                     self._energy_df = self._energy_df.merge(df, how='left', left_on=['date', 'hour'], right_on=['date', 'hour'])
                     self._energy_df['energy_price'] = self._energy_df['value'].ffill() * self._energy_df['price'].ffill()
                     df = self._energy_df          
+                    
+                    # IVA fix
+                    if (d2 >= datetime(2021, 6, 26) and d2 <= (2021, 12, 31)):
+                        iva = 1.1
+                    else:
+                        iva = DEFAULT_TAX_IVA
                     cc_df = df.loc[(pd.to_datetime(d2).floor('D') <= df['datetime'])]
                     self.attributes['cycle_current_energy_term'] = round(cc_df['energy_price'].sum(), 2)
                     self.attributes['cycle_current_power_term'] = round((self.attributes['power_limit_p1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.attributes['power_limit_p2'] * DEFAULT_DAILY_PRICE_P2) * self.attributes['cycle_current_days'], 2)
                     self.attributes['cycle_current_pvpc'] = round(((self.attributes['cycle_current_energy_term'] + self.attributes['cycle_current_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_current_days'] / 30)) * DEFAULT_TAX_IVA, 2)
+                    
+                    # IVA fix
+                    if (d0 >= datetime(2021, 6, 26) and d0 <= (2021, 12, 31)):
+                        iva = 1.1
+                    else:
+                        iva = DEFAULT_TAX_IVA
                     cl_df = df.loc[(df['datetime'] < pd.to_datetime(d2).floor('D'))]
                     self.attributes['cycle_last_energy_term'] = round(cl_df['energy_price'].sum(), 2)
                     self.attributes['cycle_last_power_term'] = round((self.attributes['power_limit_p1'] * (DEFAULT_DAILY_PRICE_P1 + DEFAULT_DAILY_PRICE_COMERC) + self.attributes['power_limit_p2'] * DEFAULT_DAILY_PRICE_P2) * self.attributes['cycle_last_days'], 2)
-                    self.attributes['cycle_last_pvpc'] = round(((self.attributes['cycle_last_energy_term'] + self.attributes['cycle_last_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_last_days'] / 30)) * DEFAULT_TAX_IVA, 2)
+                    self.attributes['cycle_last_pvpc'] = round(((self.attributes['cycle_last_energy_term'] + self.attributes['cycle_last_power_term']) * DEFAULT_TAX_ELECTR + (DEFAULT_PRICE_CONT * self.attributes['cycle_last_days'] / 30)) * iva, 2)
                     self._last_pvpc_update = datetime.now()
                     _LOGGER.debug ('prices got updated!')
         except Exception as e:
-            _LOGGER.warning (e)
+            _LOGGER.info (e)
 
     def __str__ (self):
         return str(self.attributes)
