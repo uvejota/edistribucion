@@ -171,9 +171,13 @@ class EdsHelper():
             d1 = datetime.strptime(self._cycles['lstCycles'][0]['label'].split(' - ')[1], '%d/%m/%Y')
             d2 = d1 + timedelta(days=1)
             d3 = datetime.today()
-            res = self._eds.get_custom_curve(self._cont_id, d0.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
-            data = res.get('mapHourlyPoints', None)
-            if data is not None:
+            res0 = self._eds.get_custom_curve(self._cont_id, d0.strftime("%Y-%m-%d"), d1.strftime("%Y-%m-%d"))
+            res1 = self._eds.get_custom_curve(self._cont_id, d2.strftime("%Y-%m-%d"), d3.strftime("%Y-%m-%d"))
+            data = res0.get('mapHourlyPoints', {})
+            data1 = res1.get('mapHourlyPoints', {})
+            for day in data1:
+                data[day] = data1[day]
+            if data is not None and len(data) > 0:
                 good_data = []
                 for day in data:
                     for idx in data[day]:
@@ -210,11 +214,11 @@ class EdsHelper():
                 self.attributes['cycle_last_p1'] = round(cl_df['value'].loc[(cl_df['hour'].isin(LIST_P1)) & (~cl_df['weekday'].isin(DAYS_P3))].sum(), 2)
                 self.attributes['cycle_last_p2'] = round(cl_df['value'].loc[(cl_df['hour'].isin(LIST_P2)) & (~cl_df['weekday'].isin(DAYS_P3))].sum(), 2)
                 self.attributes['cycle_last_p3'] = round(self.attributes['cycle_last'] - self.attributes['cycle_last_p1'] - self.attributes['cycle_last_p2'], 2)
-
+                
+                self._last_energy_update = datetime.now()
                 _LOGGER.debug ('energy got updated!')
         except Exception as e:
             _LOGGER.info (e)
-        self._last_energy_update = datetime.now()
     
     def _update_maximeter (self):
         try:
