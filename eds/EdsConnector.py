@@ -246,8 +246,8 @@ class EdsConnector():
         return conts
 
     def get_meter(self, cups):
-        msg = '{"actions":[{"id":"522;a","descriptor":"apex://WP_ContadorICP_CTRL/ACTION$consultarContador","callingDescriptor":"markup://c:WP_Reconnect_Detail","params":{"cupsId":"'+cups+'"}}]}',
-        cmd = 'other.WP_ContadorICP_CTRL.consultarContador=1'
+        msg = '{"actions":[{"id":"471;a","descriptor":"apex://WP_ContadorICP_F2_CTRL/ACTION$consultarContador","callingDescriptor":"markup://c:WP_Reconnect_Detail_F2","params":{"cupsId":"'+cups+'"}}]}'
+        cmd = 'other.WP_ContadorICP_F2_CTRL.consultarContador=1'
         return self._safe_command (cmd, msg).get('data', None)
     
     def get_cups_detail(self, cups):
