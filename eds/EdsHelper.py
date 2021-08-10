@@ -25,7 +25,7 @@ DEFAULT_DAILY_PRICE_COMERC = DEFAULT_PRICE_COMERC / 365
 DEFAULT_TAX_ELECTR = 1.0511300560 # multiplicative
 DEFAULT_TAX_IVA = 1.21 # multiplicative
 
-DEFAULT_SHORT_INTERVAL = timedelta(minutes=10)
+DEFAULT_SHORT_INTERVAL = timedelta(minutes=30)
 DEFAULT_LONG_INTERVAL = timedelta(minutes=60)
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,8 +72,8 @@ class EdsHelper():
         self._eds = EdsConnector(user, password)
         self._username = user
         self._password = password
-        self._short_interval = short_interval if short_interval is not None else DEFAULT_SHORT_INTERVAL
-        self._long_interval = long_interval if long_interval is not None else DEFAULT_LONG_INTERVAL
+        self._short_interval = DEFAULT_SHORT_INTERVAL
+        self._long_interval = DEFAULT_LONG_INTERVAL
         self._last_short_update = None
         self._last_long_update = None
         self._loop = asyncio.get_event_loop()
