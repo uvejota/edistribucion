@@ -1,3 +1,13 @@
+# DEPRECATED!
+En primer lugar, gracias a todos por vuestra participación identificando fallos o proponiendo mejoras, pero debido a los últimos movimientos de la distribuidora baneando por las consultas al contador he decidido dejar de mantener este repositorio. En la última versión he deshabilitado, a propósito, las llamadas al contador, ya que no quiero suponer un problema ni a la distribuidora ni a un usuario no avanzado (que se coma un ban sin siquiera entenderlo). 
+
+No obstante, si os siguen interesando los datos históricos de consumo y maxímetro, os recomiendo que probéis mi nueva integración 'e-Data', en el repositorio https://github.com/uvejota/homeassistant-edata. En este caso, necesitaréis cuenta en Datadis.es (plataforma de datos unificada por la asociación de eléctricas del territorio nacional). Los motivos del cambio son las siguientes ventajas:
+* Válido para cualquier distribuidora, ergo para cualquier persona en el territorio nacional.
+* Ofrece una API REST real, privada, lo que indudablemente proporcionará una mayor estabilidad que el método utilizado en esta integración.
+* Es más sencillo de mantener y actualizar, lamentablemente mi tiempo es limitado y esto lo hago sin ánimo de lucro.
+
+Si lo que queréis, en cambio, es conservar lecturas inmediatas del consumo/potencia de vuestra vivienda, os recomiendo la instalación de dispositivos tipo Shelly EM o sensores PZEM. Funciona mejor que lo que ofrece edistribución, es realmente sencillo de instalar, y tendréis lo que necesitáis.
+
 # edistribucion
 e-Distribución is an energy distribution company that covers most of South Spain area. If you live in this area, you probably are able to register into their website to get some information about your power demand, energy consumption, or even cycle billing (in terms of consumptions).
 
